@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `user` ADD COLUMN `balance` DOUBLE NULL,
+    ADD COLUMN `disabled` BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN `expiryDate` DATETIME(3) NULL,
+    ADD COLUMN `lastSync` DATETIME(3) NULL,
+    ADD COLUMN `online` BOOLEAN NOT NULL DEFAULT false;

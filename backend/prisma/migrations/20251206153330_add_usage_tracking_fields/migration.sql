@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `user` ADD COLUMN `lastBytesSnapshot` BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN `usedBytesTotal` BIGINT NOT NULL DEFAULT 0;

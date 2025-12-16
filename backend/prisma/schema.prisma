@@ -1,0 +1,113 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id          Int      @id @default(autoincrement())
+  photoUrl     String?
+  name        String
+  username    String   @unique
+  password    String
+  package     String
+  connection  String   // PPPoE or Hotspot
+  salesperson String
+  nas         String
+  nationalId  String?
+  mobile      String?
+  email       String?
+  address     String?
+  city        String?
+  latitude    String?
+  longitude   String?
+  createdAt   DateTime @default(now())
+
+  // NEW FIELDS FOR SYNC
+  expiryDate  DateTime?   // billing expiry
+  disabled    Boolean     @default(false) // MikroTik secret status
+  online      Boolean     @default(false) // active session
+  balance     Float?      // optional for billing
+  lastSync    DateTime?   // last time synced with MikroTik
+
+  packagePrice Float?     // selling price to user
+  area         String?    // user location / area
+  passwordRaw  String?    // masked/reveal password storage
+
+  // Staff assignment
+  staffId   Int?
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+
+  /// Total used bytes since last package renewal
+  usedBytesTotal   BigInt   @default(0)
+
+  /// Last raw byte counter snapshot from MikroTik (for delta calculations)
+  lastBytesSnapshot BigInt  @default(0)
+}
+
+model Setting {
+  id                       Int      @id @default(autoincrement())
+  logoUrl                  String?   // uploaded file URL or path
+  faviconUrl               String?   // uploaded file URL or path
+  companyName              String?
+  slogan                   String?
+  mobile                   String?
+  email                    String?
+  website                  String?
+
+  defaultCurrency          String?
+  defaultPaymentMethod     String?
+  defaultPaymentRecipient  String?
+  defaultVAT               Float?
+
+  defaultEmailApi          String?
+  defaultSmsApi            String?
+  sendSmsOnInvoice         Boolean   @default(false)
+  sendEmailOnInvoice       Boolean   @default(false)
+
+  mikrotikIp               String?
+  mikrotikUser             String?
+  mikrotikPassword         String?
+
+  address                  String?
+  city                     String?
+  country                  String?
+  zipCode                  String?
+  copyrightText            String?
+
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  name      String?
+  email     String?
+  role      String   @default("admin") // keep flexible: admin, manager, support
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Staff {
+  id        Int       @id @default(autoincrement())
+  name      String
+  phone     String?
+  area      String?
+  photoUrl  String?
+  createdAt DateTime  @default(now())
+
+  // Relation: staff → users
+  users     User[]
+}
+
+
+
+

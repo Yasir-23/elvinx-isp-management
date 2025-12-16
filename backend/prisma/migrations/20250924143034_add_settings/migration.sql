@@ -1,0 +1,30 @@
+-- CreateTable
+CREATE TABLE `Setting` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `logoUrl` VARCHAR(191) NULL,
+    `faviconUrl` VARCHAR(191) NULL,
+    `companyName` VARCHAR(191) NOT NULL,
+    `slogan` VARCHAR(191) NULL,
+    `mobile` VARCHAR(191) NULL,
+    `email` VARCHAR(191) NULL,
+    `defaultCurrency` VARCHAR(191) NULL,
+    `defaultPaymentMethod` VARCHAR(191) NULL,
+    `defaultPaymentRecipient` VARCHAR(191) NULL,
+    `defaultVAT` DOUBLE NULL,
+    `defaultEmailApi` VARCHAR(191) NULL,
+    `defaultSmsApi` VARCHAR(191) NULL,
+    `sendSmsOnInvoice` BOOLEAN NOT NULL DEFAULT false,
+    `sendEmailOnInvoice` BOOLEAN NOT NULL DEFAULT false,
+    `mikrotikIp` VARCHAR(191) NULL,
+    `mikrotikUser` VARCHAR(191) NULL,
+    `mikrotikPassword` VARCHAR(191) NULL,
+    `address` VARCHAR(191) NULL,
+    `city` VARCHAR(191) NULL,
+    `country` VARCHAR(191) NULL,
+    `zipCode` VARCHAR(191) NULL,
+    `copyrightText` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
