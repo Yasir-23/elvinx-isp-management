@@ -17,6 +17,8 @@ const uploadsPath = path.join(process.cwd(), "uploads");
 import networkRoutes from "./routes/network.js";
 import authRouter from "./routes/auth.js"
 import profileRouter from "./routes/profile.js";
+import dashboardRoutes from "./routes/dashboard.js";
+import adminRoutes from "./routes/admin.js";
 
 const app = express();
 app.use(cors());
@@ -39,6 +41,8 @@ app.use("/api/settings", requireAuth, settingsRouters);
 app.use("/api/dbusers", requireAuth, dbuserRoutes);
 app.use("/api/network", requireAuth, networkRoutes);
 app.use("/api/profile", requireAuth, profileRouter);
+app.use("/api/dashboard", requireAuth, dashboardRoutes);
+app.use("/api/admin", adminRoutes);
 
 
 // sync endpoint (keeps behavior you had)

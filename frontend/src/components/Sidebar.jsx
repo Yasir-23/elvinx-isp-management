@@ -19,7 +19,7 @@ import {
   Upload,
   Settings,
   LogOut,
-  Radio // for Network
+  Radio, // for Network
 } from "lucide-react";
 
 export default function Sidebar({ open = true }) {
@@ -47,9 +47,9 @@ export default function Sidebar({ open = true }) {
 
   // FIX LOGO URL
   const logoSrc = settings?.logoUrl
-    ? (settings.logoUrl.startsWith("http")
-        ? settings.logoUrl
-        : window.location.origin + settings.logoUrl)
+    ? settings.logoUrl.startsWith("http")
+      ? settings.logoUrl
+      : window.location.origin + settings.logoUrl
     : "/logo.png";
 
   return (
@@ -61,15 +61,15 @@ export default function Sidebar({ open = true }) {
       <div className="p-4">
         <div className="flex items-center gap-3">
           <img
-            src={settings?.logoUrl ? `http://localhost:3000${settings.logoUrl}` : "/logo.png"}
+            src={
+              settings?.logoUrl
+                ? `http://localhost:3000${settings.logoUrl}`
+                : "/logo.png"
+            }
             alt="Logo"
             className="w-10 h-10 object-contain"
           />
-          {open && (
-            <div className="text-white font-bold text-lg">
-              ElvinX
-            </div>
-          )}
+          {open && <div className="text-white font-bold text-lg">ElvinX</div>}
         </div>
 
         {/* NAVIGATION */}
@@ -80,13 +80,13 @@ export default function Sidebar({ open = true }) {
                 {/* Parent menu */}
                 <button
                   onClick={() => setUsersOpen(!usersOpen)}
-                  className="flex items-center w-full gap-3 px-3 py-2 rounded-md hover:bg-gray-800 transition"
+                  className={`flex items-center w-full ${
+                    open ? "gap-3 px-3 justify-start" : "justify-center px-0"
+                  } py-2 rounded-md hover:bg-gray-800 transition`}
                 >
                   <n.icon size={18} className="w-6 text-center" />
                   {open && (
-                    <span className="text-sm flex-1 text-left">
-                      {n.label}
-                    </span>
+                    <span className="text-sm flex-1 text-left">{n.label}</span>
                   )}
                   {open && <span>{usersOpen ? "▾" : "▸"}</span>}
                 </button>
@@ -117,12 +117,15 @@ export default function Sidebar({ open = true }) {
                 to={n.to}
                 end
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-800 transition ${
+                  `flex items-center ${
+                    open ? "gap-3 px-3 justify-start" : "justify-center px-0"
+                  } py-2 rounded-md hover:bg-gray-800 transition ${
                     isActive ? "bg-white/5" : ""
                   }`
                 }
               >
-                <n.icon size={18} className="w-6" /> {/* LUCIDE ICON */}
+                <n.icon size={18} className="w-6 flex-shrink-0" />{" "}
+                {/* LUCIDE ICON */}
                 {open && <span className="text-sm">{n.label}</span>}
               </NavLink>
             )

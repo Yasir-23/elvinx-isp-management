@@ -21,6 +21,7 @@ import { SettingsProvider } from "./context/SettingsContext";
 import NetworkPage from "./pages/NetworkPage";
 import AddUserPage from "./pages/AddUserPage";
 import ProfilePage from "./pages/ProfilePage";
+import AdminProfilePage from "./pages/AdminProfilePage";
 
 // Error boundary wrapper for safety
 function ErrorBoundary({ children }) {
@@ -161,6 +162,17 @@ function AppShell() {
             <PrivateRoute>
               <MainLayout>
                 <NetworkPage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+          <Route
+          path="/admin"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <AdminProfilePage />
               </MainLayout>
             </PrivateRoute>
           }

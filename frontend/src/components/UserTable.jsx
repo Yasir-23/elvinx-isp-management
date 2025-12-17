@@ -24,7 +24,7 @@ export default function UserTable({ title = "All Users" }) {
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(50);
+    const [limit, setLimit] = useState(10);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("id");
@@ -326,13 +326,6 @@ export default function UserTable({ title = "All Users" }) {
 
   return (
     <div className="p-4 space-y-4">
-      <button
-        onClick={() => setShowAddUser(true)} // SAME function sidebar uses
-        className=" flex items-center gap-1.5 px-2 py-1.5 text-sm rounded border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-700 hover:text-white transition"
-      >
-        <UserPlus size={18} />
-        Add User
-      </button>
       {/* Page Header - HIDDEN IN PRINT */}
       <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 screen-only">
         <Users className="text-sky-400" size={20} />
@@ -356,8 +349,8 @@ export default function UserTable({ title = "All Users" }) {
                 className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:outline-none"
               >
                 <option value="10">10</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
               </select>
               <span>entries</span>
             </div>

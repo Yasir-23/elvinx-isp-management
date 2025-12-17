@@ -92,6 +92,7 @@ model Admin {
   email     String?
   role      String   @default("admin") // keep flexible: admin, manager, support
   active    Boolean  @default(true)
+  photoUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -24,7 +24,7 @@ export default function AllUsers() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("id");

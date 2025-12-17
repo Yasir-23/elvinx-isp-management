@@ -7,12 +7,12 @@ const AddUserPage = () => {
 
   const handleClose = () => {
     // when modal closes, go back to previous page or to All Users
-    navigate(-1); // or: navigate("/users/all");
+    navigate(-1); // or: navigate("/users");
   };
 
   const handleUserAdded = () => {
     // after successful add, go to All Users (or wherever you prefer)
-    navigate("/users/all");
+    navigate("/users");
   };
 
   return (
