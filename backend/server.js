@@ -42,7 +42,7 @@ app.use("/api/dbusers", requireAuth, dbuserRoutes);
 app.use("/api/network", requireAuth, networkRoutes);
 app.use("/api/profile", requireAuth, profileRouter);
 app.use("/api/dashboard", requireAuth, dashboardRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/api/admin",requireAuth, adminRoutes);
 
 
 // sync endpoint (keeps behavior you had)
