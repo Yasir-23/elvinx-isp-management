@@ -72,12 +72,15 @@ router.post(
         copyrightText: req.body.copyrightText || null,
       };
 
+      const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+
       // Handle file uploads
       if (req.files?.logo) {
-        data.logoUrl = "/uploads/" + req.files.logo[0].filename;
+        data.logoUrl = `${baseUrl}/uploads/${req.files.logo[0].filename}`;
       }
+
       if (req.files?.favicon) {
-        data.faviconUrl = "/uploads/" + req.files.favicon[0].filename;
+        data.faviconUrl = `${baseUrl}/uploads/${req.files.favicon[0].filename}`;
       }
 
       // Check if settings exist

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, link } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Settings, LogOut, ChevronDown } from "lucide-react";
 import { useSettings } from "../context/SettingsContext";
 import api from "../services/api.js";
+import { Link } from "react-router-dom";
 
 /**
  * Topbar
@@ -13,8 +14,6 @@ import api from "../services/api.js";
  */
 export default function Topbar({
   onToggleSidebar,
-  title = "fast speed network | Easy, Clean and Simple",
-  user = { name: "Admin", avatar: "https://i.pravatar.cc/40?u=elvinx" },
 }) {
   const { settings } = useSettings();
   const logoSrc = settings?.logoUrl
@@ -23,7 +22,7 @@ export default function Topbar({
       : window.location.origin + settings.logoUrl
     : "/logo.png";
 
-  const companyTitle = settings?.companyName || title;
+  const companyTitle = settings?.companyName || "ElvinX";
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -80,19 +79,19 @@ export default function Topbar({
         {/* logo + title */}
         <div className="flex items-center gap-3">
           {/* <img src={`http://localhost:3000${settings.logoUrl}`} alt="Brand Logo" className="w-8 h-8 rounded-full object-cover" /> */}
+          <Link to="/">
           <img
-            src={
-              settings?.logoUrl
-                ? `http://localhost:3000${settings.logoUrl}`
-                : "/logo.png"
-            }
+            src={logoSrc}
             alt="Logo"
             className="w-8 h-8 rounded-full object-cover"
           />
+          </Link>
           <div className="hidden sm:block">
+            <Link to="/">
             <div className="text-sm font-semibold">
-              {companyTitle || "ElvinX"}
+              {companyTitle || "ElvinXYasir"}
             </div>
+            </Link>
             <div className="text-xs text-gray-400">
               {settings?.slogan || "Easy, Clean and Simple"}
             </div>

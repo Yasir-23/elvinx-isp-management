@@ -105,10 +105,10 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
                  className="col-span-2 p-2 rounded bg-gray-800" required />
 
           <input name="username" placeholder="Username" value={formData.username} onChange={handleChange}
-                 className="p-2 rounded bg-gray-800" required />
+                 className="col-span-2 p-2 rounded bg-gray-800" required />
 
           <input name="password" placeholder="Password" value={formData.password} onChange={handleChange}
-                 className="p-2 rounded bg-gray-800" required />
+                 className="col-span-2 p-2 rounded bg-gray-800" required />
 
           <select name="package" value={formData.package} onChange={handleChange}
                   className="col-span-2 p-2 rounded bg-gray-800" required>
@@ -116,34 +116,18 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
             {profiles.map((p, i) => <option key={i} value={p.name}>{p.name}</option>)}
           </select>
 
-          <select name="connectionType" value={formData.connectionType} onChange={handleChange} className="p-2 rounded bg-gray-800">
+          <select name="connectionType" value={formData.connectionType} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800">
             <option value="pppoe">Radius PPPoE</option>
-            <option value="hotspot">Hotspot</option>
           </select>
 
-          <select name="salesperson" value={formData.salesperson} onChange={handleChange} className="p-2 rounded bg-gray-800">
+          <select name="salesperson" value={formData.salesperson} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800">
             <option value="admin">Admin</option>
           </select>
 
-          <select name="nas" value={formData.nas} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800">
-            <option value="">Select NAS</option>
-            <option value="nas1">NAS 1</option>
-            <option value="nas2">NAS 2</option>
-          </select>
-
           <input name="nationalId" placeholder="National ID" value={formData.nationalId} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800" />
-          <input name="mobile" placeholder="Mobile Number" value={formData.mobile} onChange={handleChange} className="p-2 rounded bg-gray-800" />
-          <input name="email" placeholder="Email" value={formData.email} onChange={handleChange} className="p-2 rounded bg-gray-800" />
+          <input name="mobile" placeholder="Mobile Number" value={formData.mobile} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800" />
+          <input name="email" placeholder="Email" value={formData.email} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800" />
           <input name="address" placeholder="Address" value={formData.address} onChange={handleChange} className="col-span-2 p-2 rounded bg-gray-800" />
-          <select name="city" value={formData.city} onChange={handleChange} className="p-2 rounded bg-gray-800">
-            <option value="">Select City/District</option>
-            <option value="karachi">Karachi</option>
-            <option value="lahore">Lahore</option>
-            <option value="islamabad">Islamabad</option>
-          </select>
-
-          <input name="latitude" placeholder="Latitude" value={formData.latitude} onChange={handleChange} className="p-2 rounded bg-gray-800" />
-          <input name="longitude" placeholder="Longitude" value={formData.longitude} onChange={handleChange} className="p-2 rounded bg-gray-800" />
 
           <div className="col-span-2 flex justify-end gap-2 mt-3">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-700">Cancel</button>
