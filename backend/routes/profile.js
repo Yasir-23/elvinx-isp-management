@@ -1,6 +1,19 @@
 import express from "express";
 import prisma from "../lib/prismaClient.js";
 import { withConn } from "../services/mikrotik.js";
+import multer from "multer";
+import path from "path";
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const upload = multer({ storage });
 
 const router = express.Router();
 
@@ -42,7 +55,7 @@ router.get("/:id", async (req, res) => {
       createdAt: user.createdAt,
       disabled: user.disabled,
       online: user.online,
-      passwordMasked: maskedPassword,
+      passwordMasked: user.password,
       salesperson: user.salesperson,
       staff: user.staff
         ? {
@@ -52,7 +65,7 @@ router.get("/:id", async (req, res) => {
             area: user.staff.area,
             photoUrl: user.staff.photoUrl,
           }
-        : null,
+        : null, 
     };
 
     // 2) Fetch metrics from MikroTik
@@ -339,5 +352,50 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+/**
+ * POST /api/profile/:id/photo
+ * Upload / change user profile photo
+ */
+router.post(
+  "/:id/photo",
+  upload.single("photo"),
+  async (req, res) => {
+    try {
+      const userId = Number(req.params.id);
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: "No photo uploaded",
+        });
+      }
+
+      const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+      const photoUrl = `${baseUrl}/uploads/${req.file.filename}`;
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { photoUrl },
+        select: {
+          id: true,
+          photoUrl: true,
+        },
+      });
+
+      return res.json({
+        success: true,
+        user: updatedUser,
+      });
+    } catch (err) {
+      console.error("POST /api/profile/:id/photo error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to upload profile photo",
+      });
+    }
+  }
+);
+
 
 export default router;

@@ -109,6 +109,13 @@ model Staff {
   users     User[]
 }
 
+model Package {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  rateLimit String  @unique
+  createdAt DateTime @default(now())
+}
+
 
 
 

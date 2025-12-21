@@ -19,11 +19,17 @@ import authRouter from "./routes/auth.js"
 import profileRouter from "./routes/profile.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import adminRoutes from "./routes/admin.js";
+import packageRouter from "./routes/packages.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ Global BigInt JSON fix (place once in backend entry file)
+BigInt.prototype.toJSON = function () {
+  return this.toString(); // safest (no overflow)
+};
 
 // ----------------------
 // Public Routes (must stay at the top)
@@ -43,6 +49,7 @@ app.use("/api/network", requireAuth, networkRoutes);
 app.use("/api/profile", requireAuth, profileRouter);
 app.use("/api/dashboard", requireAuth, dashboardRoutes);
 app.use("/api/admin",requireAuth, adminRoutes);
+app.use("/api/packages", requireAuth, packageRouter);
 
 
 // sync endpoint (keeps behavior you had)

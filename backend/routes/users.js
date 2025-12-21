@@ -45,9 +45,20 @@ router.post("/users", async (req, res) => {
 
     res.json({ success: true, user });
   } catch (err) {
-    console.error("POST /api/users error:", err);
-    res.status(500).json({ success: false, error: err.message });
+  console.error(err);
+
+  if (err.code === "P2002") {
+    return res.status(400).json({
+      success: false,
+      error: "Username already exists. Please choose another one.",
+    });
   }
+
+  res.status(500).json({
+    success: false,
+    error: "Failed to create user",
+  });
+}
 });
 
 /**
