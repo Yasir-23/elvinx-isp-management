@@ -111,8 +111,11 @@ model Staff {
 
 model Package {
   id        Int     @id @default(autoincrement())
+  displayName  String?
   name      String  @unique
   rateLimit String  @unique
+  regularPrice Int      @default(0)
+  ispCost      Int      @default(0)
   createdAt DateTime @default(now())
 }
 

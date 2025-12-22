@@ -49,6 +49,7 @@ const ProfilePage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [selectedPhotoName, setSelectedPhotoName] = useState("");
 
   const [editForm, setEditForm] = useState({
     name: "",
@@ -61,7 +62,8 @@ const ProfilePage = () => {
     package: "",
     packagePrice: "",
   });
-  const [mtProfiles, setMtProfiles] = useState([]);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [packages, setPackages] = useState([]);
 
   useEffect(() => {
     if (!id) return;
@@ -228,6 +230,7 @@ const ProfilePage = () => {
       packagePrice: safePrice,
     };
 
+    let profileUpdated = false;
     try {
       const res = await api.put(`/users/${profile.id}`, payload);
 
@@ -245,14 +248,15 @@ const ProfilePage = () => {
 
   async function loadProfiles() {
     try {
-      const res = await api.get("/pppoe/profiles");
+      const res = await api.get("/packages");
       if (res.data?.success) {
-        const names = res.data.data.map((p) => p.name).filter(Boolean); // keep only names
-        setMtProfiles(names);
+        setPackages(res.data.packages || []);
+      } else {
+        setPackages([]);
       }
     } catch (err) {
-      console.error("Failed to load MikroTik profiles:", err);
-      alert("Unable to load package list from MikroTik.");
+      console.error("Failed to load packages:", err);
+      alert("Unable to load package list.");
     }
   }
 
@@ -265,6 +269,12 @@ const ProfilePage = () => {
       <span className={valueClass}>{value}</span>
     </div>
   );
+
+  const sortedPackages = [...packages].sort((a, b) => {
+    const aSpeed = parseInt(a.name);
+    const bSpeed = parseInt(b.name);
+    return aSpeed - bSpeed;
+  });
 
   return (
     <div className="p-6 text-gray-100 space-y-6">
@@ -457,7 +467,7 @@ const ProfilePage = () => {
                     // Set existing values
                     setEditForm({
                       name: profile.name || "",
-                      password: "",
+                      password: profile.passwordMasked || "",
                       mobile: profile.mobile || "",
                       email: profile.email || "",
                       address: profile.address || "",
@@ -467,6 +477,7 @@ const ProfilePage = () => {
                       packagePrice: profile.packagePrice || "",
                     });
 
+                    setPhotoFile(null);
                     setShowEditModal(true);
                   }}
                 >
@@ -517,10 +528,11 @@ const ProfilePage = () => {
           </div>
         </div>
 
-
         {/* Right column: Service detail */}
         <div className="space-y-4">
-        <div><BandwidthGraph userId={profile.id} /></div>
+          <div>
+            <BandwidthGraph userId={profile.id} />
+          </div>
           {/* ==================== SERVICE DETAIL ==================== */}
           <div className="bg-gray-800 p-5 rounded-lg border border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-200">
@@ -690,6 +702,66 @@ const ProfilePage = () => {
 
                 {/* 2 column grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Profile Photo */}
+                  <div className="col-span-2">
+                    <p className="text-sm text-gray-400 mb-1">
+                      Select Profile Photo
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      id="userPhotoUpload"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        setSelectedPhotoName(file.name);
+
+                        const fd = new FormData();
+                        fd.append("photo", file);
+
+                        try {
+                          const res = await api.post(
+                            `/profile/${profile.id}/photo`,
+                            fd,
+                            {
+                              headers: {
+                                "Content-Type": "multipart/form-data",
+                              },
+                            }
+                          );
+
+                          // Update UI immediately (NO reload)
+                          if (res.data?.photoUrl) {
+                            setProfile((prev) => ({
+                              ...prev,
+                              photoUrl: res.data.photoUrl,
+                            }));
+                          }
+                        } catch (err) {
+                          console.error("Photo upload failed", err);
+                          alert("Photo upload failed");
+                        }
+                      }}
+                    />
+
+                    <div className="flex items-center gap-3">
+                      <label
+                        htmlFor="userPhotoUpload"
+                        className="px-3 py-1.5 rounded bg-gray-700 text-white cursor-pointer"
+                      >
+                        Choose image
+                      </label>
+                      {/* Selected file name */}
+                      {selectedPhotoName && (
+                        <span className="text-sm text-gray-400 truncate max-w-[200px]">
+                          {selectedPhotoName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* NAME */}
                   <label className="text-sm">
                     Name
@@ -703,11 +775,11 @@ const ProfilePage = () => {
                   </label>
 
                   {/* USERNAME (LOCKED) */}
-                  <label className="text-sm opacity-70">
-                    Username (locked)
+                  <label className="text-sm">
+                    Username
                     <input
-                      disabled
-                      className="w-full p-2 bg-gray-700 rounded mt-1 cursor-not-allowed"
+                      readOnly
+                      className="w-full p-2 bg-gray-800 rounded mt-1"
                       value={profile.username}
                     />
                   </label>
@@ -720,9 +792,7 @@ const ProfilePage = () => {
                         className="w-full p-2 bg-gray-800 rounded"
                         type={showPass ? "text" : "password"}
                         value={editForm.password}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, password: e.target.value })
-                        }
+                        readOnly
                       />
                       <button
                         className="px-2 py-1 bg-gray-700 rounded shrink-0"
@@ -805,9 +875,9 @@ const ProfilePage = () => {
                     >
                       <option value="">Select Package</option>
 
-                      {mtProfiles.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
+                      {sortedPackages.map((p) => (
+                        <option key={p.id} value={p.name}>
+                          {p.name}
                         </option>
                       ))}
                     </select>

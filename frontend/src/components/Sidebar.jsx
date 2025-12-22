@@ -34,7 +34,7 @@ export default function Sidebar({ open = true }) {
     { to: "/users", label: "All Users", icon: Users },
     { to: "/bills", label: "Add Bill/Invoice", icon: FilePlus2 },
     { to: "/bills/new", label: "Browse Bills", icon: FolderOpen },
-    { to: "/addpackages", label: "Add Package", icon: PackagePlus },
+    { to: "/addpackage", label: "Add Package", icon: PackagePlus },
     { to: "/allpackages", label: "All Packages", icon: Package },
     { to: "/invoices", label: "Invoices", icon: FileText },
     { to: "/payments", label: "Payments", icon: CreditCard },

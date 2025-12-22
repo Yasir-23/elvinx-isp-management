@@ -22,6 +22,8 @@ import NetworkPage from "./pages/NetworkPage";
 import AddUserPage from "./pages/AddUserPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminProfilePage from "./pages/AdminProfilePage";
+import AddPackagePage from "./pages/AddPackagePage";
+import AllPackages from "./pages/AllPackagesPage";
 
 // Error boundary wrapper for safety
 function ErrorBoundary({ children }) {
@@ -177,6 +179,29 @@ function AppShell() {
             </PrivateRoute>
           }
         />
+
+        <Route
+          path="/addpackage"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <AddPackagePage />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/allpackages"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <AllPackages />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
       </Routes>
     </BrowserRouter>
   );

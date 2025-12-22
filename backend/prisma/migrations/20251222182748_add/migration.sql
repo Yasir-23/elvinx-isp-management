@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `package` ADD COLUMN `displayName` VARCHAR(191) NULL,
+    ADD COLUMN `ispCost` INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN `regularPrice` INTEGER NOT NULL DEFAULT 0;
