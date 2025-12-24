@@ -248,9 +248,9 @@ const ProfilePage = () => {
 
   async function loadProfiles() {
     try {
-      const res = await api.get("/packages");
+      const res = await api.get("/packages", {params: {limit: 1000},});
       if (res.data?.success) {
-        setPackages(res.data.packages || []);
+        setPackages(res.data.data || []);
       } else {
         setPackages([]);
       }

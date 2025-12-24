@@ -12,17 +12,19 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useNavigate } from "react-router-dom";
 
 export default function AllPackages() {
   const [packages, setPackages] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(15);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("id");
   const [order, setOrder] = useState("desc");
   const [copySuccess, setCopySuccess] = useState(false);
+  const navigate = useNavigate();
 
   // ----------------------------
   // TEMP fetch (UI skeleton only)
@@ -87,8 +89,8 @@ export default function AllPackages() {
         start + index,
         pkg.displayName || "-",
         pkg.name || "-",
-        "-", // users (later)
-        "-", // active (later)
+        pkg.usersCount || "", // users (later)
+        pkg.activeCount || "", // active (later)
         pkg.regularPrice ?? "-",
       ].map(cleanCell);
 
@@ -135,8 +137,8 @@ export default function AllPackages() {
       start + index,
       pkg.displayName || "",
       pkg.name || "",
-      "-", // Users (later)
-      "-", // Active (later)
+      pkg.usersCount || "", // Users (later)
+      pkg.activeCount || "", // Active (later)
       pkg.regularPrice ?? "",
     ]);
 
@@ -176,8 +178,8 @@ export default function AllPackages() {
       start + index,
       pkg.displayName || "",
       pkg.name || "",
-      "-", // Users (later)
-      "-", // Active (later)
+      pkg.usersCount || "", // Users (later)
+      pkg.activeCount || "", // Active (later)
       pkg.regularPrice ?? "",
     ]);
 
@@ -205,8 +207,8 @@ export default function AllPackages() {
       "#": start + index,
       Name: pkg.displayName || "",
       Volume: pkg.name || "",
-      Users: "-", // later
-      Active: "-", // later
+      Users: pkg.usersCount || "", // later
+      Active: pkg.activeCount || "", // later
       "Regular Price": pkg.regularPrice ?? "",
     }));
 
@@ -235,8 +237,8 @@ export default function AllPackages() {
       start + index,
       pkg.displayName || "",
       pkg.name || "",
-      "-", // Users (later)
-      "-", // Active (later)
+      pkg.usersCount || "", // Users (later)
+      pkg.activeCount || "", // Active (later)
       pkg.regularPrice ?? "",
     ]);
 
@@ -287,7 +289,7 @@ export default function AllPackages() {
                 }}
                 className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white"
               >
-                <option value="5">5</option>
+                <option value="15">15</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
               </select>
@@ -402,11 +404,24 @@ export default function AllPackages() {
                   <td className="px-4 py-2">{start + index}</td>
                   <td className="px-4 py-2">{pkg.displayName || "-"}</td>
                   <td className="px-4 py-2">{pkg.name || "-"}</td>
-                  <td className="px-4 py-2">-</td>
-                  <td className="px-4 py-2">-</td>
+                  <td className="px-4 py-2">{pkg.usersCount || "0"}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={
+                        pkg.activeCount > 0
+                          ? "text-green-400 font-medium"
+                          : "text-gray-400"
+                      }
+                    >
+                      {pkg.activeCount}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">{pkg.regularPrice ?? "-"}</td>
                   <td className="px-4 py-2 text-center screen-only">
-                    <button className="p-2 rounded hover:bg-gray-700 text-blue-400">
+                    <button
+                    onClick={() => navigate(`/packages/${pkg.id}`)}
+                    className="p-2 rounded hover:bg-gray-700 text-blue-400">
+                      
                       <Pencil size={16} />
                     </button>
                   </td>

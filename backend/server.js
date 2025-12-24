@@ -20,6 +20,7 @@ import profileRouter from "./routes/profile.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import adminRoutes from "./routes/admin.js";
 import packageRouter from "./routes/packages.js";
+import invoiceRoutes from "./routes/invoices.js";
 
 const app = express();
 app.use(cors());
@@ -50,6 +51,7 @@ app.use("/api/profile", requireAuth, profileRouter);
 app.use("/api/dashboard", requireAuth, dashboardRoutes);
 app.use("/api/admin",requireAuth, adminRoutes);
 app.use("/api/packages", requireAuth, packageRouter);
+app.use("/api/invoices",requireAuth, invoiceRoutes);
 
 
 // sync endpoint (keeps behavior you had)

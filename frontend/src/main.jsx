@@ -24,6 +24,9 @@ import ProfilePage from "./pages/ProfilePage";
 import AdminProfilePage from "./pages/AdminProfilePage";
 import AddPackagePage from "./pages/AddPackagePage";
 import AllPackages from "./pages/AllPackagesPage";
+import PackageProfile from "./pages/PackageProfile";
+import AddInvoice from "./pages/AddInvoice";
+import BrowseBills from "./pages/BrowseBills";
 
 // Error boundary wrapper for safety
 function ErrorBoundary({ children }) {
@@ -197,6 +200,39 @@ function AppShell() {
             <PrivateRoute>
               <MainLayout>
                 <AllPackages />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="packages/:id"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <PackageProfile />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="addinvoices"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <AddInvoice />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="browsebills"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <BrowseBills />
               </MainLayout>
             </PrivateRoute>
           }

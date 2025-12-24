@@ -31,10 +31,10 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
   // ==========================
   useEffect(() => {
     api
-      .get("/packages") // ✅ baseURL + token included
+      .get("/packages", { params: {limit: 1000},}) // ✅ baseURL + token included
       .then((res) => {
         if (res.data.success) {
-          setPackages(res.data.packages || []);
+          setPackages(res.data.data || []);
         } else {
           setPackages([]);
         }

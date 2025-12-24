@@ -53,22 +53,21 @@ router.post("/", async (req, res) => {
   }
 
   if (!displayName) {
-  return res.status(400).json({
-    success: false,
-    error: "Package name is required",
-  });
-}
+    return res.status(400).json({
+      success: false,
+      error: "Package name is required",
+    });
+  }
 
-const regPrice = Number(regularPrice);
-const costPrice = Number(ispCost);
+  const regPrice = Number(regularPrice);
+  const costPrice = Number(ispCost);
 
-if (isNaN(regPrice) || isNaN(costPrice)) {
-  return res.status(400).json({
-    success: false,
-    error: "Regular price and ISP cost must be numbers",
-  });
-}
-
+  if (isNaN(regPrice) || isNaN(costPrice)) {
+    return res.status(400).json({
+      success: false,
+      error: "Regular price and ISP cost must be numbers",
+    });
+  }
 
   // 2️⃣ Generate profile name
   const profileName = profileNameFromRateLimit(rateLimit);
@@ -81,9 +80,7 @@ if (isNaN(regPrice) || isNaN(costPrice)) {
       console.log("Existing profiles:", profiles);
 
       // Prevent duplicate bandwidth
-      const exists = profiles.some(
-        (p) => p["rate-limit"] === rateLimit
-      );
+      const exists = profiles.some((p) => p["rate-limit"] === rateLimit);
 
       if (exists) {
         throw new Error("DUPLICATE_RATE_LIMIT");
@@ -157,7 +154,13 @@ router.get("/", async (req, res) => {
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
 
     // Whitelist sortable columns (IMPORTANT)
-    const sortableFields = ["id", "displayName", "name", "regularPrice", "createdAt"];
+    const sortableFields = [
+      "id",
+      "displayName",
+      "name",
+      "regularPrice",
+      "createdAt",
+    ];
     const sortField = sortableFields.includes(sort) ? sort : "id";
     const sortOrder = order === "asc" ? "asc" : "desc";
 
@@ -188,6 +191,68 @@ router.get("/", async (req, res) => {
       }),
     ]);
 
+    // ---------- USERS COUNT (Phase 1) ----------
+    const usersGrouped = await prisma.user.groupBy({
+      by: ["package"],
+      _count: {
+        package: true,
+      },
+    });
+
+    // Convert to lookup map: { "8 Mbps": 12 }
+    const usersCountMap = {};
+    for (const row of usersGrouped) {
+      if (row.package) {
+        usersCountMap[row.package] = row._count.package;
+      }
+    }
+
+
+    // ---------- ACTIVE USERS FROM MIKROTIK (Phase 2) ----------
+    let activeUsernames = new Set();
+
+    try {
+      const activeList = await withConn(async (conn) => {
+        const res = await conn.write("/ppp/active/print", []);
+        return Array.isArray(res) ? res : [];
+      });
+
+      activeUsernames = new Set(
+        activeList
+          .map((a) => (a.name || a.user || "").toString())
+          .filter(Boolean)
+      );
+    } catch (mtErr) {
+      console.warn(
+        "⚠ Failed to fetch active PPP sessions:",
+        mtErr?.message || mtErr
+      );
+      activeUsernames = new Set();
+    }
+
+    // ---------- ACTIVE COUNT BY PACKAGE ----------
+    let activeCountMap = {};
+
+    if (activeUsernames.size > 0) {
+      const activeUsers = await prisma.user.findMany({
+        where: {
+          disabled: false,
+          username: {
+            in: Array.from(activeUsernames),
+          },
+        },
+        select: {
+          username: true,
+          package: true,
+        },
+      });
+
+      for (const u of activeUsers) {
+        if (!u.package) continue;
+        activeCountMap[u.package] = (activeCountMap[u.package] || 0) + 1;
+      }
+    }
+
     // Ensure numeric safety
     const data = rows.map((p) => ({
       id: p.id,
@@ -195,6 +260,8 @@ router.get("/", async (req, res) => {
       name: p.name,
       regularPrice: p.regularPrice == null ? null : Number(p.regularPrice),
       createdAt: p.createdAt,
+      usersCount: usersCountMap[p.name] || 0,
+      activeCount: activeCountMap[p.name] || 0,
     }));
 
     return res.json({
@@ -212,7 +279,6 @@ router.get("/", async (req, res) => {
     });
   }
 });
-
 
 /**
  * POST /api/packages/sync
@@ -278,6 +344,206 @@ router.post("/sync", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "Failed to sync packages from MikroTik",
+    });
+  }
+});
+
+/**
+ * GET /api/packages/:id
+ * Get single package details for Edit Package page
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!id || isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid package id",
+      });
+    }
+
+    // 1️⃣ Fetch package
+    const pkg = await prisma.package.findUnique({
+      where: { id },
+    });
+
+    if (!pkg) {
+      return res.status(404).json({
+        success: false,
+        error: "Package not found",
+      });
+    }
+
+    // 2️⃣ Users count (DB)
+    const usersCount = await prisma.user.count({
+      where: {
+        package: pkg.name,
+      },
+    });
+
+    // 3️⃣ Active users (MikroTik)
+    let activeUsernames = new Set();
+
+    try {
+      const activeList = await withConn(async (conn) => {
+        const res = await conn.write("/ppp/active/print", []);
+        return Array.isArray(res) ? res : [];
+      });
+
+      activeUsernames = new Set(
+        activeList
+          .map((a) => (a.name || a.user || "").toString())
+          .filter(Boolean)
+      );
+    } catch (mtErr) {
+      console.warn(
+        "⚠ Failed to fetch active PPP sessions:",
+        mtErr?.message || mtErr
+      );
+      activeUsernames = new Set();
+    }
+
+    // 4️⃣ Active count mapped via DB usernames
+    let activeCount = 0;
+
+    if (activeUsernames.size > 0) {
+      activeCount = await prisma.user.count({
+        where: {
+          disabled: false,
+          package: pkg.name,
+          username: {
+            in: Array.from(activeUsernames),
+          },
+        },
+      });
+    }
+
+    // 5️⃣ Response
+    return res.json({
+      success: true,
+      package: {
+        id: pkg.id,
+        displayName: pkg.displayName,
+        name: pkg.name,
+        rateLimit: pkg.rateLimit,
+        regularPrice: pkg.regularPrice,
+        ispCost: pkg.ispCost,
+        createdAt: pkg.createdAt,
+        usersCount,
+        activeCount,
+      },
+    });
+  } catch (err) {
+    console.error("GET /api/packages/:id error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch package",
+    });
+  }
+});
+
+/**
+ * PUT /api/packages/:id
+ * Update ONLY safe fields: displayName, regularPrice, ispCost
+ */
+router.put("/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!id || isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid package id",
+      });
+    }
+
+    // Disallow dangerous fields
+    if ("name" in req.body || "rateLimit" in req.body) {
+      return res.status(400).json({
+        success: false,
+        error: "Volume and rateLimit cannot be updated",
+      });
+    }
+
+    const { displayName, regularPrice, ispCost } = req.body;
+
+    // Validate numeric fields if provided
+    const rp =
+      regularPrice === undefined || regularPrice === null
+        ? undefined
+        : Number(regularPrice);
+
+    const ic =
+      ispCost === undefined || ispCost === null ? undefined : Number(ispCost);
+
+    if (rp !== undefined && (Number.isNaN(rp) || rp < 0)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid regularPrice",
+      });
+    }
+
+    if (ic !== undefined && (Number.isNaN(ic) || ic < 0)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid ispCost",
+      });
+    }
+
+    // displayName may be string or null/undefined
+    if (
+      displayName !== undefined &&
+      displayName !== null &&
+      typeof displayName !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid displayName",
+      });
+    }
+
+    // Ensure package exists
+    const existing = await prisma.package.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: "Package not found",
+      });
+    }
+
+    // Update only provided safe fields
+    const updated = await prisma.package.update({
+      where: { id },
+      data: {
+        ...(displayName !== undefined ? { displayName } : {}),
+        ...(rp !== undefined ? { regularPrice: rp } : {}),
+        ...(ic !== undefined ? { ispCost: ic } : {}),
+      },
+      select: {
+        id: true,
+        displayName: true,
+        name: true,
+        rateLimit: true,
+        regularPrice: true,
+        ispCost: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      package: updated,
+    });
+  } catch (err) {
+    console.error("PUT /api/packages/:id error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to update package",
     });
   }
 });

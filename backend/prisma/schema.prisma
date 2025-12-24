@@ -48,6 +48,8 @@ model User {
 
   /// Last raw byte counter snapshot from MikroTik (for delta calculations)
   lastBytesSnapshot BigInt  @default(0)
+
+  invoices Invoice[]
 }
 
 model Setting {
@@ -118,6 +120,21 @@ model Package {
   ispCost      Int      @default(0)
   createdAt DateTime @default(now())
 }
+
+model Invoice {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Float
+  status      String   // "paid" | "unpaid"
+  invoiceDate DateTime
+  paidAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
 
 
 
