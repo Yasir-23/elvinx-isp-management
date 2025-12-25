@@ -3,12 +3,15 @@ import api from "../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import EditInvoiceStatusModal from "../components/EditInvoiceStatusModal";
+import { toast } from "react-hot-toast";
 import {
   Copy,
   FileText,
   FileSpreadsheet,
   FileDown,
   Printer,
+  Pencil,
 } from "lucide-react";
 
 /**
@@ -22,6 +25,8 @@ export default function BrowseBills() {
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const fetchInvoices = async () => {
     try {
@@ -261,6 +266,37 @@ export default function BrowseBills() {
     doc.save(`invoices_page_${page}.pdf`);
   };
 
+  const handleUpdateInvoiceStatus = async ({ id, status, paidAt }) => {
+    try {
+      const res = await api.put(`/invoices/${id}/status`, {
+        status,
+        paidAt,
+      });
+
+      if (!res.data?.success) {
+        toast.error("Failed to update invoice");
+        return false;
+      }
+
+      // 🔁 update invoice in table (NO refetch)
+      setInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === id ? { ...inv, status: "paid", paidAt } : inv
+        )
+      );
+
+      toast.success("Invoice marked as paid");
+      setShowEditModal(false);
+      setSelectedInvoice(null);
+
+      return true; // ✅ VERY IMPORTANT
+    } catch (err) {
+      console.error("Failed to update invoice:", err);
+      toast.error(err.response?.data?.error || "Failed to update invoice");
+      return false; // ✅ VERY IMPORTANT
+    }
+  };
+
   // ----------------------------
   // PAGINATION CALC
   // ----------------------------
@@ -359,6 +395,7 @@ export default function BrowseBills() {
               <th className="px-4 py-3 text-left">Amount</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Invoice Date</th>
+              <th className="px-4 py-3 text-left screen-only">Action</th>
             </tr>
           </thead>
 
@@ -396,6 +433,38 @@ export default function BrowseBills() {
                   </td>
                   <td className="px-4 py-3">
                     {new Date(inv.invoiceDate).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-2 screen-only">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => {
+                          setSelectedInvoice(inv);
+                          setShowEditModal(true);
+                        }}
+                        className="p-2 rounded hover:bg-gray-700 text-blue-400"
+                        disabled={inv.status === "paid"}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      {/* <button
+                      onClick={() => toggleUserStatus(user)}
+                      className={`p-2 rounded hover:bg-gray-700 ${
+                        user.disabled ? "text-green-400" : "text-yellow-400"
+                      }`}
+                    >
+                      {user.disabled ? (
+                        <CheckCircle size={16} />
+                      ) : (
+                        <Ban size={16} />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => deleteUser(user)}
+                      className="p-2 rounded bg-red-600/20 hover:bg-red-600/30 text-red-400"
+                    >
+                      <Trash2 size={16} />
+                    </button> */}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -438,6 +507,16 @@ export default function BrowseBills() {
         <div className="fixed bottom-5 right-5 z-50 px-4 py-2 rounded-md bg-green-600 text-white text-sm shadow-lg">
           ✅ Copied to clipboard
         </div>
+      )}
+      {showEditModal && selectedInvoice && (
+        <EditInvoiceStatusModal
+          invoice={selectedInvoice}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedInvoice(null);
+          }}
+          onSave={handleUpdateInvoiceStatus}
+        />
       )}
     </div>
   );
