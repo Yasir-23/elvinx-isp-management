@@ -228,6 +228,7 @@ const ProfilePage = () => {
       area: editForm.area || null,
       package: editForm.package || null,
       packagePrice: safePrice,
+      dataLimitGB: editForm.dataLimitGB,
     };
 
     let profileUpdated = false;
@@ -248,7 +249,7 @@ const ProfilePage = () => {
 
   async function loadProfiles() {
     try {
-      const res = await api.get("/packages", {params: {limit: 1000},});
+      const res = await api.get("/packages", { params: { limit: 1000 } });
       if (res.data?.success) {
         setPackages(res.data.data || []);
       } else {
@@ -275,6 +276,29 @@ const ProfilePage = () => {
     const bSpeed = parseInt(b.name);
     return aSpeed - bSpeed;
   });
+
+  async function handleRenew() {
+    if (!profile?.id) return;
+    if (
+      !confirm(
+        "Are you sure you want to RENEW this user? This will reset data usage to 0."
+      )
+    )
+      return;
+
+    try {
+      const res = await api.post(`/users/${profile.id}/renew`);
+      if (res.data?.success) {
+        alert("User renewed successfully!");
+        window.location.reload();
+      } else {
+        alert("Renew failed: " + res.data?.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error during renewal.");
+    }
+  }
 
   return (
     <div className="p-6 text-gray-100 space-y-6">
@@ -452,7 +476,7 @@ const ProfilePage = () => {
                 {/* Renew */}
                 <button
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2"
-                  onClick={() => alert("Renew popup coming next")}
+                  onClick={handleRenew}
                 >
                   <RefreshCw className="w-4 h-4" /> Renew
                 </button>
@@ -475,6 +499,9 @@ const ProfilePage = () => {
                       area: profile.area || "",
                       package: profile.package || "",
                       packagePrice: profile.packagePrice || "",
+                      dataLimitGB: profile.dataLimit
+                        ? (Number(profile.dataLimit) / 1073741824).toFixed(0)
+                        : "",
                     });
 
                     setPhotoFile(null);
@@ -896,6 +923,26 @@ const ProfilePage = () => {
                         })
                       }
                     />
+                  </label>
+
+                  {/* DATA LIMIT (GB) */}
+                  <label className="text-sm">
+                    Data Limit (GB)
+                    <input
+                      type="number"
+                      placeholder="e.g. 1000"
+                      className="w-full p-2 bg-gray-800 rounded mt-1 border border-gray-700"
+                      value={editForm.dataLimitGB}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          dataLimitGB: e.target.value,
+                        })
+                      }
+                    />
+                    <span className="text-xs text-gray-500">
+                      Leave empty for unlimited
+                    </span>
                   </label>
                 </div>
 

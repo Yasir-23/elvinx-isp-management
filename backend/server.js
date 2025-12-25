@@ -21,6 +21,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import adminRoutes from "./routes/admin.js";
 import packageRouter from "./routes/packages.js";
 import invoiceRoutes from "./routes/invoices.js";
+import { checkQuotas } from "./services/quotaEnforcer.js";
 
 const app = express();
 app.use(cors());
@@ -64,6 +65,11 @@ app.get("/api/sync", async (req, res) => {
     res.status(500).json({ success: false, error: err.message || "Sync failed" });
   }
 });
+
+// Start the Interval (e.g., every 2 minutes)
+setInterval(() => {
+  checkQuotas();
+}, 2 * 60 * 1000); // 2 minutes in milliseconds
 
 
 

@@ -289,6 +289,18 @@ router.put("/users/:id", async (req, res) => {
 
     const data = req.body;
 
+    // Convert "dataLimitGB" from frontend to Bytes for DB
+    if (data.dataLimitGB !== undefined) {
+      if (data.dataLimitGB === "" || data.dataLimitGB === null) {
+         data.dataLimit = null; 
+      } else {
+         // GB to Bytes: GB * 1024 * 1024 * 1024
+         data.dataLimit = BigInt(Math.floor(Number(data.dataLimitGB) * 1073741824));
+      }
+      // Remove the helper field so Prisma doesn't crash
+      delete data.dataLimitGB;
+    }
+
     // Update in database
     const updated = await prisma.user.update({
       where: { id },
@@ -410,6 +422,56 @@ router.delete("/users/:id", async (req, res) => {
       success: false,
       error: err.message || "Server error while deleting user",
     });
+  }
+});
+
+/**
+ * POST /api/users/:id/renew
+ * - Resets used bytes to 0
+ * - Enables the user
+ * - Kicks the user offline (so they reconnect with 0 bytes)
+ */
+router.post("/users/:id/renew", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
+
+    // 1. Update Database: Reset usage & Enable
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        usedBytesTotal: 0,       // Reset Counter
+        lastBytesSnapshot: 0,    // Reset Snapshot
+        disabled: false,         // Enable User
+      },
+    });
+
+    // 2. Update MikroTik: Enable Secret & Kill Active Session
+    try {
+      await withConn(async (conn) => {
+        // A. Enable Secret
+        const secrets = await conn.write("/ppp/secret/print", [`?name=${updated.username}`]);
+        if (secrets && secrets[0]) {
+           const rid = secrets[0][".id"];
+           await conn.write("/ppp/secret/set", [`=.id=${rid}`, "=disabled=no"]);
+        }
+
+        // B. KILL ACTIVE SESSION (Crucial Step!) 💀
+        const active = await conn.write("/ppp/active/print", [`?name=${updated.username}`]);
+        if (active && active[0]) {
+           const activeId = active[0][".id"];
+           await conn.write("/ppp/active/remove", [`=.id=${activeId}`]);
+        }
+      });
+    } catch (mtErr) {
+      console.warn("Renew: Failed to update MikroTik", mtErr.message);
+    }
+
+    res.json({ success: true, message: "User renewed & session reset." });
+
+  } catch (err) {
+    console.error("Renew error:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

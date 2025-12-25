@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `user` ADD COLUMN `dataLimit` BIGINT NULL DEFAULT 0;

@@ -66,6 +66,7 @@ router.get("/:id", async (req, res) => {
             photoUrl: user.staff.photoUrl,
           }
         : null, 
+      dataLimit: user.dataLimit ? user.dataLimit.toString() : null,
     };
 
     // 2) Fetch metrics from MikroTik
@@ -256,6 +257,26 @@ router.get("/:id", async (req, res) => {
             ? formatRouterDate(act["last-link-down-time"])
             : null;
 
+          // --- 📊 CALCULATE LIMITS & REMAINING ---
+          const limitBytes = BigInt(user.dataLimit || 0);
+          let totalGB = null;
+          let remGB = null;
+          
+          if (limitBytes > 0n) {
+            // User has a limit
+            totalGB = toGB(limitBytes);
+            
+            const usedBig = BigInt(storedTotal);
+            let remainingBytes = limitBytes - usedBig;
+            if (remainingBytes < 0n) remainingBytes = 0n; // Don't show negative
+            
+            remGB = toGB(remainingBytes);
+          } else {
+            // Unlimited User
+            totalGB = "Unlimited"; 
+            remGB = "∞"; 
+          }  
+
           return {
             online,
             uptime: act?.uptime || null,
@@ -275,10 +296,10 @@ router.get("/:id", async (req, res) => {
             usedVolumeBytes: Number(storedTotal),
             usedVolumeGB: toGB(storedTotal),
 
-            totalVolumeBytes: null,
-            totalVolumeGB: null,
-            remainingVolumeBytes: null,
-            remainingVolumeGB: null,
+            totalVolumeBytes: limitBytes > 0n ? Number(limitBytes) : 0,
+            totalVolumeGB: totalGB,
+            remainingVolumeBytes: null, // (Optional, usually just need GB)
+            remainingVolumeGB: remGB,
 
             ipPool,
             policy,

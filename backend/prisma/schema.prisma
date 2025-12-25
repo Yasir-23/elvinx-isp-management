@@ -45,6 +45,7 @@ model User {
 
   /// Total used bytes since last package renewal
   usedBytesTotal   BigInt   @default(0)
+  dataLimit        BigInt?  @default(0) // Limit in Bytes. If 0 or null, unlimited.
 
   /// Last raw byte counter snapshot from MikroTik (for delta calculations)
   lastBytesSnapshot BigInt  @default(0)
