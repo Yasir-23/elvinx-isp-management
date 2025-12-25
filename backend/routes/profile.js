@@ -35,6 +35,25 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
+    // ---------------------------------------------------------
+    // 🆕 NEW LOGIC: Fetch Official Package Price
+    // ---------------------------------------------------------
+    let finalPackagePrice = user.packagePrice; // Fallback to custom price
+
+    if (user.package) {
+      // Find the official package details by name (e.g., "8 Mbps")
+      const pkgInfo = await prisma.package.findUnique({
+        where: { name: user.package },
+        select: { regularPrice: true },
+      });
+
+      // If found, use the official regular price
+      if (pkgInfo) {
+        finalPackagePrice = pkgInfo.regularPrice;
+      }
+    }
+    // ---------------------------------------------------------
+
     const maskedPassword = user.passwordRaw
       ? user.passwordRaw.replace(/./g, "•")
       : null;
@@ -51,7 +70,7 @@ router.get("/:id", async (req, res) => {
       area: user.area,
       connection: user.connection,
       package: user.package,
-      packagePrice: user.packagePrice,
+      packagePrice: finalPackagePrice,
       createdAt: user.createdAt,
       disabled: user.disabled,
       online: user.online,
@@ -177,13 +196,15 @@ router.get("/:id", async (req, res) => {
           }
 
           // Save updated totals
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              usedBytesTotal: storedTotal,
-              lastBytesSnapshot: lastSnapshot,
-            },
-          });
+          if (online || live > 0n) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                usedBytesTotal: storedTotal,
+                lastBytesSnapshot: lastSnapshot,
+              },
+            });
+          }
 
           const toGB = (b) =>
             Number((Number(b) / (1024 * 1024 * 1024)).toFixed(2));

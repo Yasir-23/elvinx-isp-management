@@ -867,7 +867,7 @@ const ProfilePage = () => {
                   </label>
 
                   {/* CITY */}
-                  <label className="text-sm">
+                  {/* <label className="text-sm">
                     City
                     <input
                       className="w-full p-2 bg-gray-800 rounded mt-1"
@@ -876,10 +876,10 @@ const ProfilePage = () => {
                         setEditForm({ ...editForm, city: e.target.value })
                       }
                     />
-                  </label>
+                  </label> */}
 
                   {/* AREA */}
-                  <label className="text-sm">
+                  {/* <label className="text-sm">
                     Area
                     <input
                       className="w-full p-2 bg-gray-800 rounded mt-1"
@@ -888,7 +888,7 @@ const ProfilePage = () => {
                         setEditForm({ ...editForm, area: e.target.value })
                       }
                     />
-                  </label>
+                  </label> */}
 
                   {/* PACKAGE */}
                   <label className="block text-sm">
@@ -914,19 +914,14 @@ const ProfilePage = () => {
                   <label className="text-sm">
                     Package Price
                     <input
+                      readOnly
                       className="w-full p-2 bg-gray-800 rounded mt-1"
                       value={editForm.packagePrice}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          packagePrice: e.target.value,
-                        })
-                      }
                     />
                   </label>
 
                   {/* DATA LIMIT (GB) */}
-                  <label className="text-sm">
+                  <label className="col-span-1 sm:col-span-2">
                     Data Limit (GB)
                     <input
                       type="number"

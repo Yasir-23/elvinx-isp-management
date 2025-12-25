@@ -40,6 +40,11 @@ function profileNameFromRateLimit(rateLimit) {
  * POST /api/packages
  * Create PPP profile (package) in MikroTik
  */
+/**
+ * POST /api/packages
+ * Create PPP profile (package) in MikroTik
+ * IMPROVED: Automatically copies Local/Remote IP settings from existing profiles.
+ */
 router.post("/", async (req, res) => {
   const { displayName, volume, regularPrice, ispCost } = req.body || {};
 
@@ -48,25 +53,19 @@ router.post("/", async (req, res) => {
   if (!rateLimit) {
     return res.status(400).json({
       success: false,
-      error: "Invalid package volume format",
+      error: "Invalid package volume format (e.g., use '4M/4M')",
     });
   }
 
   if (!displayName) {
-    return res.status(400).json({
-      success: false,
-      error: "Package name is required",
-    });
+    return res.status(400).json({ success: false, error: "Package name is required" });
   }
 
   const regPrice = Number(regularPrice);
   const costPrice = Number(ispCost);
 
   if (isNaN(regPrice) || isNaN(costPrice)) {
-    return res.status(400).json({
-      success: false,
-      error: "Regular price and ISP cost must be numbers",
-    });
+    return res.status(400).json({ success: false, error: "Prices must be numbers" });
   }
 
   // 2️⃣ Generate profile name
@@ -77,19 +76,33 @@ router.post("/", async (req, res) => {
     await withConn(async (conn) => {
       // Fetch existing PPP profiles
       const profiles = await conn.write("/ppp/profile/print");
-      console.log("Existing profiles:", profiles);
-
-      // Prevent duplicate bandwidth
+      
+      // A. Check for Duplicates
       const exists = profiles.some((p) => p["rate-limit"] === rateLimit);
+      if (exists) throw new Error("DUPLICATE_RATE_LIMIT");
 
-      if (exists) {
-        throw new Error("DUPLICATE_RATE_LIMIT");
+      // B. 🕵️‍♂️ SMART COPY: Find a "Template" Profile to copy IPs from
+      // We look for any profile that has both Local and Remote addresses set.
+      const template = profiles.find(p => p["local-address"] && p["remote-address"]);
+
+      // Defaults (Safety net)
+      let localAddr = "192.168.62.10";
+      let remoteAddr = "PPPoE Server";
+
+      if (template) {
+        console.log(`Using settings from existing profile '${template.name}'`);
+        localAddr = template["local-address"];
+        remoteAddr = template["remote-address"];
       }
 
-      // Create PPP profile
+      console.log(`Creating Package '${profileName}' with Local: ${localAddr}, Remote: ${remoteAddr}`);
+
+      // C. Create PPP profile with CORRECT IPs
       await conn.write("/ppp/profile/add", [
         `=name=${profileName}`,
         `=rate-limit=${rateLimit}`,
+        `=local-address=${localAddr}`,   // <--- FIXED: Prevents "Connecting..." freeze
+        `=remote-address=${remoteAddr}`  // <--- FIXED: Assigns correct Pool
       ]);
     });
 

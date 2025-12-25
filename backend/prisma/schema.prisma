@@ -127,7 +127,7 @@ model Invoice {
   userId      Int
   amount      Float
   status      String   // "paid" | "unpaid"
-  invoiceDate DateTime
+  invoiceDate DateTime @default(now())
   paidAt DateTime?
   createdAt   DateTime @default(now())
 

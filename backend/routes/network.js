@@ -153,6 +153,83 @@ router.post("/raw", async (req, res) => {
   }
 });
 
+// ===================
+// GET /api/network/auto-config
+// Automatically finds the best Local Address and Pool Name
+// ===================
+router.get("/auto-config", async (req, res) => {
+  try {
+    const data = await withConn(async (conn) => {
+      // 1. Get all IP Pools
+      const pools = await conn.write("/ip/pool/print");
+      
+      // 2. Get existing PPP Profiles (to see what is currently working)
+      const profiles = await conn.write("/ppp/profile/print");
+
+      // 3. Get Router IP Addresses (fallback if profiles are empty)
+      const addresses = await conn.write("/ip/address/print");
+
+      return { pools, profiles, addresses };
+    });
+
+    // --- 🕵️‍♂️ AUTO-DISCOVERY LOGIC ---
+    
+    // A. Find Best Remote Address (Pool)
+    // Strategy: Look for a pool used in an existing profile first. 
+    // If not found, just pick the first pool available.
+    let bestPool = data.profiles.find(p => p["remote-address"])?.["remote-address"];
+    
+    if (!bestPool && data.pools.length > 0) {
+      bestPool = data.pools[0].name;
+    }
+
+    // B. Find Best Local Address (Gateway IP)
+    // Strategy: Copy from an existing profile.
+    let bestLocal = data.profiles.find(p => p["local-address"])?.["local-address"];
+
+    // Fallback: If no profile has it, look for a static IP on a "bridge" or "lan" interface
+    if (!bestLocal && data.addresses.length > 0) {
+      const staticIps = data.addresses.filter(a => a.dynamic !== "true");
+      if (staticIps.length > 0) {
+        // Prefer 'bridge' or 'lan' interface
+        const bridgeIp = staticIps.find(a => a.interface.toLowerCase().includes("bridge") || a.interface.toLowerCase().includes("lan"));
+        bestLocal = bridgeIp ? bridgeIp.address : staticIps[0].address;
+      }
+    }
+
+    // Clean up IP (Remove CIDR suffix like /24)
+    if (bestLocal && bestLocal.includes("/")) {
+      bestLocal = bestLocal.split("/")[0];
+    }
+
+    res.json({
+      success: true,
+      suggested: {
+        localAddress: bestLocal || null,
+        remoteAddress: bestPool || null
+      },
+      // Debug info to help us verify
+      debug: {
+        poolsFound: data.pools.map(p => p.name),
+        profilesFound: data.profiles.map(p => ({
+          name: p.name, 
+          local: p["local-address"], 
+          remote: p["remote-address"]
+        })),
+        ipsFound: data.addresses.map(a => ({
+          ip: a.address, 
+          iface: a.interface, 
+          type: a.dynamic === "true" ? "Dynamic" : "Static"
+        }))
+      }
+    });
+
+  } catch (err) {
+    console.error("Auto-config error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 
 export default router;

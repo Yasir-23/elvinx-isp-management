@@ -425,49 +425,65 @@ router.delete("/users/:id", async (req, res) => {
   }
 });
 
+
 /**
  * POST /api/users/:id/renew
- * - Resets used bytes to 0
- * - Enables the user
- * - Kicks the user offline (so they reconnect with 0 bytes)
+ * - Kills the session.
+ * - WAITS until the session is confirmed gone (Fixes Ghost Data).
+ * - Resets DB to 0.
  */
 router.post("/users/:id/renew", async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
 
-    // 1. Update Database: Reset usage & Enable
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        usedBytesTotal: 0,       // Reset Counter
-        lastBytesSnapshot: 0,    // Reset Snapshot
-        disabled: false,         // Enable User
-      },
-    });
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
 
-    // 2. Update MikroTik: Enable Secret & Kill Active Session
+    // 1️⃣ ENABLE & KILL (The Terminator Logic)
     try {
       await withConn(async (conn) => {
-        // A. Enable Secret
-        const secrets = await conn.write("/ppp/secret/print", [`?name=${updated.username}`]);
+        // Enable Secret
+        const secrets = await conn.write("/ppp/secret/print", [`?name=${user.username}`]);
         if (secrets && secrets[0]) {
            const rid = secrets[0][".id"];
            await conn.write("/ppp/secret/set", [`=.id=${rid}`, "=disabled=no"]);
         }
 
-        // B. KILL ACTIVE SESSION (Crucial Step!) 💀
-        const active = await conn.write("/ppp/active/print", [`?name=${updated.username}`]);
+        // Kill Active Session
+        const active = await conn.write("/ppp/active/print", [`?name=${user.username}`]);
         if (active && active[0]) {
            const activeId = active[0][".id"];
            await conn.write("/ppp/active/remove", [`=.id=${activeId}`]);
+           console.log(`Renew: Kicked user ${user.username}`);
+        }
+
+        // 2️⃣ WAIT FOR DEATH (Polling Loop) - The Critical Fix
+        // We check every 500ms (max 3 seconds) to ensure the session is actually gone.
+        for (let i = 0; i < 6; i++) {
+          const check = await conn.write("/ppp/active/print", [`?name=${user.username}`]);
+          if (check.length === 0) {
+            console.log("Renew: Session confirmed dead.");
+            break;
+          }
+          await new Promise(r => setTimeout(r, 500)); // Wait 500ms
         }
       });
     } catch (mtErr) {
-      console.warn("Renew: Failed to update MikroTik", mtErr.message);
+      console.warn("Renew: MikroTik Warning:", mtErr.message);
     }
 
-    res.json({ success: true, message: "User renewed & session reset." });
+    // 3️⃣ RESET DATABASE TO 0 (Safe now because session is gone)
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        usedBytesTotal: 0,
+        lastBytesSnapshot: 0, 
+        disabled: false,
+      },
+    });
+
+    res.json({ success: true, message: "User renewed. Session reset confirmed." });
 
   } catch (err) {
     console.error("Renew error:", err);
