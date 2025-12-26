@@ -138,10 +138,22 @@ const ProfilePage = () => {
     ? new Date(profile.createdAt).toLocaleDateString()
     : "-";
 
-  const statusLabel = profile.disabled ? "Disabled" : "Active";
-  const statusColor = profile.disabled
-    ? "bg-red-500/10 text-red-400 border border-red-500/30"
-    : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+  // --- NEW STATUS LOGIC ---
+  const isExpired = profile.expiryDate && new Date(profile.expiryDate) < new Date();
+  
+  let statusLabel = "Active";
+  let statusColor = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"; // Green
+
+  if (profile.disabled) {
+    if (isExpired) {
+      statusLabel = "Expired";
+      statusColor = "bg-orange-500/10 text-orange-400 border border-orange-500/30"; // Orange
+    } else {
+      statusLabel = "Disabled";
+      statusColor = "bg-red-500/10 text-red-400 border border-red-500/30"; // Red
+    }
+  }
+  // ------------------------
 
   const avatarInitials =
     (profile.name || profile.username || "?")
@@ -628,7 +640,7 @@ const ProfilePage = () => {
               <DetailRow
                 icon={<Calendar size={16} />}
                 label="Expiration Date"
-                value={metrics?.expirationDate || "-"}
+                value={profile.expiryDate ? new Date(profile.expiryDate).toLocaleDateString() : "-"}
               />
 
               {/* 11 Total Volume */}

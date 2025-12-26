@@ -71,6 +71,7 @@ router.get("/:id", async (req, res) => {
       connection: user.connection,
       package: user.package,
       packagePrice: finalPackagePrice,
+      expiryDate: user.expiryDate,
       createdAt: user.createdAt,
       disabled: user.disabled,
       online: user.online,

@@ -440,6 +440,10 @@ router.post("/users/:id/renew", async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return res.status(404).json({ success: false, error: "User not found" });
 
+    // 🕒 CALCULATE NEW EXPIRY (Now + 30 Days)
+    const newExpiryDate = new Date();
+    newExpiryDate.setDate(newExpiryDate.getDate() + 30);
+
     // 1️⃣ ENABLE & KILL (The Terminator Logic)
     try {
       await withConn(async (conn) => {
@@ -473,17 +477,18 @@ router.post("/users/:id/renew", async (req, res) => {
       console.warn("Renew: MikroTik Warning:", mtErr.message);
     }
 
-    // 3️⃣ RESET DATABASE TO 0 (Safe now because session is gone)
+    // 3️⃣ RESET DATABASE TO 0 + set expiry (Safe now because session is gone)
     const updated = await prisma.user.update({
       where: { id },
       data: {
         usedBytesTotal: 0,
         lastBytesSnapshot: 0, 
         disabled: false,
+        expiryDate: newExpiryDate,
       },
     });
 
-    res.json({ success: true, message: "User renewed. Session reset confirmed." });
+    res.json({ success: true, message: "User renewed for 30 days. Session reset confirmed." });
 
   } catch (err) {
     console.error("Renew error:", err);
