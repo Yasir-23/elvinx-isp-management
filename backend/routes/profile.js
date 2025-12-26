@@ -365,7 +365,7 @@ router.get("/:id", async (req, res) => {
 
       packageDuration: "1 Month",
       lastExpirationDate: user.lastExpiration || "-",
-      expirationDate: user.nextExpiration || "-",
+      expirationDate: user.expiryDate ? new Date(user.expiryDate).toLocaleDateString() : "-", // ✅ NEW (Correct)
 
       totalVolumeGB: metrics.totalVolumeGB ?? 0,
       // usedVolumeGB: metrics.usedVolumeGB ?? 0,

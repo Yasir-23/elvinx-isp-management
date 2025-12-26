@@ -5,10 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Sessions from "./pages/Sessions";
-import RouterInfo from "./pages/RouterInfo";
 import AllUsers from "./pages/AllUsersPage";
-import OnlineUsers from "./pages/OnlineUsersPage";
-import OfflineUsers from "./pages/OfflineUsersPage";
 import Settings from "./pages/Settings";
 import FaviconUpdater from "./components/FaviconUpdater";
 import Login from "./pages/Login";
@@ -107,44 +104,11 @@ function AppShell() {
         />
 
         <Route
-          path="/users/online"
-          element={
-            <PrivateRoute>
-              <MainLayout>
-                <OnlineUsers />
-              </MainLayout>
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/users/offline"
-          element={
-            <PrivateRoute>
-              <MainLayout>
-                <OfflineUsers />
-              </MainLayout>
-            </PrivateRoute>
-          }
-        />
-
-        <Route
           path="/sessions"
           element={
             <PrivateRoute>
               <MainLayout>
                 <Sessions />
-              </MainLayout>
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/router"
-          element={
-            <PrivateRoute>
-              <MainLayout>
-                <RouterInfo />
               </MainLayout>
             </PrivateRoute>
           }

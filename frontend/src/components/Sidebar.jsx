@@ -30,21 +30,16 @@ export default function Sidebar({ open = true }) {
 
   const nav = [
     { to: "/", label: "Home", icon: Home },
+    { to: "/admin", label: "Profile", icon: UserCog },
+    { to: "/network", label: "Network", icon: Radio },
     { to: "/users/add", label: "Add User", icon: UserPlus },
     { to: "/users", label: "All Users", icon: Users },
-    { to: "/addinvoices", label: "Add Bill/Invoice", icon: FilePlus2 },
-    { to: "/browsebills", label: "Browse Bills", icon: FolderOpen },
     { to: "/addpackage", label: "Add Package", icon: PackagePlus },
     { to: "/allpackages", label: "All Packages", icon: Package },
-    { to: "/invoices", label: "Invoices", icon: FileText },
-    { to: "/payments", label: "Payments", icon: CreditCard },
-    { to: "/incomeexpense", label: "Income/Expense", icon: Wallet },
-    { to: "/areas", label: "Area", icon: MapPin },
-    { to: "/staff", label: "Staff", icon: UserCog },
-    { to: "/import", label: "Import", icon: Upload },
+    { to: "/addinvoices", label: "Add Bill/Invoice", icon: FilePlus2 },
+    { to: "/browsebills", label: "Browse Bills", icon: FolderOpen },
     { to: "/settings", label: "Settings", icon: Settings },
     { to: "/logout", label: "Logout", icon: LogOut },
-    { to: "/network", label: "Network", icon: Radio },
   ];
 
   // FIX LOGO URL

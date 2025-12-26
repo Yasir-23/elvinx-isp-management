@@ -626,15 +626,15 @@ const ProfilePage = () => {
               <DetailRow
                 icon={<Clock size={16} />}
                 label="Package Duration"
-                value={metrics?.packageDuration || "-"}
+                value={metrics?.serviceDetails?.packageDuration || "1 Month"}
               />
 
               {/* 9 - Last Expiration Date */}
-              <DetailRow
+              {/* <DetailRow
                 icon={<Calendar size={16} />}
                 label="Last Expiration Date"
                 value={metrics?.lastExpirationDate || "-"}
-              />
+              /> */}
 
               {/* 10 - Expiration Date */}
               <DetailRow
@@ -669,17 +669,17 @@ const ProfilePage = () => {
               />
 
               {/* 17 Last Activation Date */}
-              <DetailRow
+              {/* <DetailRow
                 icon={<Calendar size={16} />}
                 label="Last Activation Date"
                 value={metrics?.lastActivationDate || "-"}
-              />
+              /> */}
 
               {/* 18 Last Activation By */}
               <DetailRow
                 icon={<UserCircle size={16} />}
                 label="Last Activation By"
-                value={metrics?.lastActivationBy || "-"}
+                value={profile.salesperson || "-"}
               />
 
               {/* 19 Salesperson */}
