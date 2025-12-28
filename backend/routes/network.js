@@ -16,10 +16,21 @@ router.get("/router-status", async (req, res) => {
       },
     });
 
-    const result = await withConn(async (conn) => {
-      const data = await conn.write("/system/resource/print");
-      return data[0];
+    // Fetch multiple stats from Mikrotik
+    const data = await withConn(async (conn) => {
+      const [resource] = await conn.write("/system/resource/print");
+      const [board] = await conn.write("/system/routerboard/print");
+      const activeSessions = await conn.write("/ppp/active/print");
+
+      return {
+        resource: resource || {},
+        board: board || {},
+        activeCount: activeSessions ? activeSessions.length : 0
+      };
     });
+
+    // Helper to convert bytes to MB
+    const toMB = (bytes) => (bytes ? (parseInt(bytes) / 1024 / 1024).toFixed(1) : "0");
 
     res.json({
       success: true,
@@ -29,9 +40,19 @@ router.get("/router-status", async (req, res) => {
         user: settings?.mikrotikUser || null,
       },
       info: {
-        uptime: result.uptime,
-        version: result.version,
-        board: result.boardName,
+        uptime: data.resource.uptime,
+        version: data.resource.version,
+        board: data.board.model || data.resource["board-name"],
+        cpuLoad: data.resource["cpu-load"],
+        memory: {
+          free: toMB(data.resource["free-memory"]),
+          total: toMB(data.resource["total-memory"]),
+        },
+        disk: {
+          free: toMB(data.resource["free-hdd-space"]),
+          total: toMB(data.resource["total-hdd-space"]),
+        },
+        activeUsers: data.activeCount
       },
     });
   } catch (err) {
@@ -45,7 +66,7 @@ router.get("/router-status", async (req, res) => {
     });
 
     res.json({
-      success: true,
+      success: true, // Keep success true so frontend doesn't crash, just shows offline
       online: false,
       router: {
         ip: settings?.mikrotikIp || null,

@@ -12,6 +12,7 @@ import {
   FileDown,
   Printer,
   Pencil,
+  Trash2, 
 } from "lucide-react";
 
 /**
@@ -39,6 +40,7 @@ export default function BrowseBills() {
           search,
         },
       });
+      console.log("DB Response:", res.data); // Check this in Console to see new field names
 
       if (res.data?.success) {
         setInvoices(res.data.data || []);
@@ -304,6 +306,207 @@ export default function BrowseBills() {
   const end = Math.min(page * limit, total);
   const totalPages = Math.ceil(total / limit);
 
+  // ----------------------------
+  // DELETE INVOICE
+  // ----------------------------
+  const handleDeleteInvoice = async (invoice) => {
+    if (!confirm(`Are you sure you want to delete the invoice for "${invoice.user?.name}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/invoices/${invoice.id}`);
+      if (res.data?.success) {
+        toast.success("Invoice deleted successfully");
+        // Remove from local list immediately
+        setInvoices((prev) => prev.filter((inv) => inv.id !== invoice.id));
+        fetchInvoices();
+      } else {
+        toast.error("Failed to delete invoice");
+      }
+    } catch (err) {
+      console.error("Delete invoice error:", err);
+      toast.error(err.response?.data?.error || "Failed to delete invoice");
+    }
+  };
+
+  // ----------------------------
+  // GENERATE PDF RECEIPT (Tailwind Styled)
+  // ----------------------------
+  const generateReceipt = (invoice) => {
+    const doc = new jsPDF();
+
+    // --- Tailwind Colors (RGB) ---
+    const colors = {
+      gray900: [17, 24, 39],   // #111827 (Headers)
+      gray700: [55, 65, 81],   // #374151 (Subtext)
+      gray200: [229, 231, 235],// #e5e7eb (Table BG)
+      gray100: [243, 244, 246],// #f3f4f6 (Light BG)
+      teal600: [13, 148, 136], // #0d9488 (Branding)
+      green600: [22, 163, 74], // #16a34a (Paid)
+      red600: [220, 38, 38],   // #dc2626 (Unpaid)
+      white: [255, 255, 255],
+    };
+
+    // 1. HEADER BANNER
+    doc.setFillColor(...colors.gray900); 
+    doc.rect(0, 0, 210, 40, "F"); 
+
+    // Header Text
+    doc.setTextColor(...colors.white);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE / RECEIPT", 105, 20, null, "center");
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.teal600); // Accent color text
+    doc.text("ElvinX ISP Management System", 105, 30, null, "center");
+
+    // 2. BILL TO SECTION
+    const labelX = 15;
+    const valueX = 42; // Aligns all values nicely
+
+    doc.setTextColor(...colors.gray900);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILL TO:", 15, 60);
+
+    doc.setFontSize(10);
+
+    // -- Row 1: Customer --
+    doc.setFont("helvetica", "bold");
+    doc.text("Customer:", labelX, 70);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.gray700);
+    doc.text(invoice.user?.name || "N/A", valueX, 70);
+
+    // -- Row 2: User ID --
+    doc.setTextColor(...colors.gray900); // Reset to dark for label
+    doc.setFont("helvetica", "bold");
+    doc.text("User ID:", labelX, 76);
+
+    doc.setTextColor(...colors.gray700); // Reset to gray for value
+    doc.setFont("helvetica", "normal");
+    doc.text(invoice.user?.username || "N/A", valueX, 76);
+
+    // -- Row 3: Mobile --
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.text("Mobile:", labelX, 82);
+
+    doc.setTextColor(...colors.gray700);
+    doc.setFont("helvetica", "normal");
+    doc.text(invoice.user?.mobile || "N/A", valueX, 82);
+
+    // -- Row 4: Address --
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.text("Address:", labelX, 88);
+
+    doc.setTextColor(...colors.gray700);
+    doc.setFont("helvetica", "normal");
+    // Split address to fit within column (width ~70)
+    const splitAddress = doc.splitTextToSize(invoice.user?.address || "N/A", 70);
+    doc.text(splitAddress, valueX, 88);
+
+   // 3. INVOICE DETAILS (Right Side)
+    const labelRightX = 120;
+    const valueRightX = 142; 
+
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("INVOICE DETAILS:", labelRightX, 60);
+
+    doc.setFontSize(10);
+
+    // -- Row 1: Invoice # --
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.text("Invoice #:", labelRightX, 70);
+
+    doc.setTextColor(...colors.gray700);
+    doc.setFont("helvetica", "normal");
+    doc.text(String(invoice.id), valueRightX, 70);
+
+    // -- Row 2: Date --
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.text("Date:", labelRightX, 76);
+
+    doc.setTextColor(...colors.gray700);
+    doc.setFont("helvetica", "normal");
+    doc.text(new Date(invoice.invoiceDate).toLocaleDateString(), valueRightX, 76);
+
+    // -- Row 3: Status --
+    const isPaid = invoice.status === "paid";
+    
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.text("Status:", labelRightX, 82);
+
+    // Status Value (Bold + Color)
+    doc.setFont("helvetica", "bold");
+    if (isPaid) {
+      doc.setTextColor(...colors.green600); 
+      doc.text("PAID", valueRightX, 82);
+    } else {
+      doc.setTextColor(...colors.red600); 
+      doc.text("UNPAID", valueRightX, 82);
+    }
+
+    // -- Row 4: Paid On (Restored & Styled) --
+    if (isPaid && invoice.paidAt) {
+      doc.setTextColor(...colors.gray900);
+      doc.setFont("helvetica", "bold");
+      doc.text("Paid On:", labelRightX, 88);
+
+      doc.setTextColor(...colors.gray700);
+      doc.setFont("helvetica", "normal");
+      doc.text(new Date(invoice.paidAt).toLocaleDateString(), valueRightX, 88);
+    }
+
+    // 4. LINE ITEMS TABLE
+    const startY = 110;
+    
+    // Table Header Background
+    doc.setFillColor(...colors.gray200);
+    doc.rect(15, startY, 180, 10, "F");
+    
+    // Table Header Text
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.text("Description (Package)", 20, startY + 7);
+    doc.text("Amount (PKR)", 160, startY + 7);
+
+    // Table Content
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.gray700);
+    doc.text(invoice.user?.package || "Internet Service", 20, startY + 20);
+    doc.text(String(invoice.amount), 165, startY + 20);
+
+    // Divider Line
+    doc.setDrawColor(...colors.gray200);
+    doc.line(15, startY + 25, 195, startY + 25); 
+
+    // 5. TOTAL
+    doc.setTextColor(...colors.gray900);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`Total:  ${invoice.amount}`, 150, startY + 40);
+
+    // 6. FOOTER
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...colors.gray700);
+    doc.text("Thank you for your business!", 105, 280, null, "center");
+
+    // Save
+    doc.save(`Receipt_${invoice.user?.username || "user"}_${invoice.id}.pdf`);
+  };
+
   return (
     <div className="p-4 space-y-4">
       {/* HEADER */}
@@ -417,7 +620,7 @@ export default function BrowseBills() {
                 <tr key={inv.id} className="border-t border-gray-700">
                   <td className="px-4 py-3">{(page - 1) * limit + idx + 1}</td>
                   <td className="px-4 py-3">{inv.user?.name}</td>
-                  <td className="px-4 py-3">{inv.user?.username}</td>
+                  <td className="px-4 py-3">{inv.user?.username || "N/A"}</td>
                   <td className="px-4 py-3">{inv.user?.package}</td>
                   <td className="px-4 py-3">{inv.amount}</td>
                   <td className="px-4 py-3">
@@ -435,35 +638,31 @@ export default function BrowseBills() {
                     {new Date(inv.invoiceDate).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2 screen-only">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
                           setSelectedInvoice(inv);
                           setShowEditModal(true);
                         }}
-                        className="p-2 rounded hover:bg-gray-700 text-blue-400"
+                        className="p-2 rounded bg-teal-600/20 hover:bg-gray-700 text-blue-400"
                         disabled={inv.status === "paid"}
                       >
                         <Pencil size={16} />
                       </button>
-                      {/* <button
-                      onClick={() => toggleUserStatus(user)}
-                      className={`p-2 rounded hover:bg-gray-700 ${
-                        user.disabled ? "text-green-400" : "text-yellow-400"
-                      }`}
-                    >
-                      {user.disabled ? (
-                        <CheckCircle size={16} />
-                      ) : (
-                        <Ban size={16} />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => deleteUser(user)}
+                      <button
+                      onClick={() => handleDeleteInvoice(inv)}
                       className="p-2 rounded bg-red-600/20 hover:bg-red-600/30 text-red-400"
                     >
                       <Trash2 size={16} />
-                    </button> */}
+                    </button>
+                      <button
+                        onClick={() => generateReceipt(inv)}
+                        className="p-2 rounded bg-teal-600/20 hover:bg-teal-600/30 text-teal-400"
+                        title="Download Receipt"
+                      >
+                        <FileDown size={16} />
+                      </button>
+                    
                     </div>
                   </td>
                 </tr>

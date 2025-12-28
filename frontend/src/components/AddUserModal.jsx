@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import api from "../services/api";
+import { toast } from "react-hot-toast";
 
 const AddUserModal = ({ onClose, onUserAdded }) => {
   const [profiles, setProfiles] = useState([]);
@@ -8,6 +9,7 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
   const [packages, setPackages] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  
 
   const [formData, setFormData] = useState({
     name: "",
@@ -79,7 +81,7 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
     try {
       const res = await api.post("/users", payload); // ✅ token included automatically
       if (res.data.success) {
-        alert("User created successfully"); // ✅ feedback
+        toast.success("User created successfully"); // ✅ feedback
         onUserAdded && onUserAdded(res.data.user);
         onClose();
         window.location.reload();

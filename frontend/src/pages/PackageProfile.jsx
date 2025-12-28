@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../services/api";
+import { toast } from "react-hot-toast"
 
 export default function PackageProfile() {
   const { id } = useParams();
@@ -180,10 +181,10 @@ export default function PackageProfile() {
                 setIsDirty(false);
               }
 
-              alert("Package updated successfully");
+              toast.success("Package updated successfully");
             } catch (err) {
               console.error(err);
-              alert("Failed to update package");
+              toast.error("Failed to update package");
             } finally {
               setSaving(false);
             }

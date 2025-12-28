@@ -1,227 +1,167 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import api from "../services/api";
+import { 
+  Activity, 
+  Cpu, 
+  HardDrive, 
+  Server, 
+  Wifi, 
+  Clock, 
+  Info, 
+  RefreshCw 
+} from "lucide-react";
 
 export default function NetworkPage() {
-  const [status, setStatus] = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [interfaces, setInterfaces] = useState([]);
-  const [loadingInterfaces, setLoadingInterfaces] = useState(false);
-
-  const [addressLists, setAddressLists] = useState([]);
-  const [loadingLists, setLoadingLists] = useState(false);
-
-  // ==========================
-  // Router Status
-  // ==========================
-  const fetchStatus = async () => {
+  const fetchStats = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/network/router-status"); 
-      setStatus(res.data || null);
+      const res = await api.get("/network/router-status");
+      // The API returns { success: true, online: true, router: {...}, info: {...} }
+      if (res.data?.success) {
+        setStats(res.data);
+      }
     } catch (err) {
-      console.error("❌ Failed to load router status:", err);
+      console.error("❌ Failed to load network stats:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================
-  // Network Interfaces
-  // ==========================
-  const fetchInterfaces = async () => {
-    try {
-      setLoadingInterfaces(true);
-      const res = await api.get("/network/interfaces");
-      if (res.data.success) setInterfaces(res.data.interfaces);
-    } catch (err) {
-      console.error("❌ Failed to load interfaces:", err);
-    } finally {
-      setLoadingInterfaces(false);
-    }
-  };
-
-  // ==========================
-  // Address Lists
-  // ==========================
-  const fetchAddressLists = async () => {
-    try {
-      setLoadingLists(true);
-      const res = await api.get("/network/address-lists");
-      if (res.data.success) setAddressLists(res.data.lists);
-    } catch (err) {
-      console.error("❌ Failed to load address lists:", err);
-    } finally {
-      setLoadingLists(false);
-    }
-  };
-
   useEffect(() => {
-    fetchStatus();
-    fetchInterfaces();
-    fetchAddressLists();
+    fetchStats();
   }, []);
 
+  // Helper to calculate percentage for progress bars (optional visual)
+  const getPercent = (free, total) => {
+    if (!free || !total) return 0;
+    const used = parseFloat(total) - parseFloat(free);
+    return Math.round((used / parseFloat(total)) * 100);
+  };
+
   return (
-    <div className="p-6 bg-background min-h-screen text-foreground">
-      <h1 className="text-2xl font-bold mb-6">Network</h1>
-
-      {/* Actions Row */}
-      <div className="flex gap-3 mb-6">
-        <Button
-          onClick={() => {
-            fetchStatus();
-            fetchInterfaces();
-          }}
-          variant="default"
-        >
-          🔄 Refresh All
-        </Button>
-        <Button
-          onClick={() => alert("Add Router flow coming soon!")}
-          variant="success"
-        >
-          ➕ Add Router
+    <div className="p-6 bg-background min-h-screen text-foreground space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Activity className="text-teal-500" /> Network Dashboard
+        </h1>
+        <Button onClick={fetchStats} disabled={loading} variant="outline">
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh Stats
         </Button>
       </div>
 
-      {/* Router Status */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Router Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-muted-foreground">
-              Loading router status...
+      {/* CONNECTION STATUS BANNER */}
+      <Card className="border-l-4 border-l-teal-500 bg-gray-900/50">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-full ${stats?.online ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+              <Wifi size={24} />
             </div>
-          ) : !status ? (
-            <div className="text-destructive">
-              Failed to load router status.
+            <div>
+              <p className="text-sm text-gray-400">Router Connection</p>
+              <h3 className="text-lg font-bold text-white">
+                {stats?.online ? "Online & Connected" : "Offline / Unreachable"}
+              </h3>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <div>
-                <span className="font-semibold">Router IP:</span>{" "}
-                {status.router?.ip || "N/A"}
-              </div>
-              <div>
-                <span className="font-semibold">Router User:</span>{" "}
-                {status.router?.user || "N/A"}
-              </div>
-              <div>
-                <span className="font-semibold">Status:</span>{" "}
-                {status.online ? (
-                  <span className="text-green-500 font-bold">Online ✅</span>
-                ) : (
-                  <span className="text-red-500 font-bold">Offline ❌</span>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Interfaces */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Interfaces</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loadingInterfaces ? (
-            <div className="text-muted-foreground">Loading interfaces...</div>
-          ) : interfaces.length === 0 ? (
-            <div className="text-red-400">Router offline. Cannot load any Interface.</div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Type</th>
-                  <th className="p-2">MAC</th>
-                  <th className="p-2">Running</th>
-                  <th className="p-2">Disabled</th>
-                </tr>
-              </thead>
-              <tbody>
-                {interfaces.map((iface, idx) => (
-                  <tr key={idx} className="border-b hover:bg-muted/50">
-                    <td className="p-2">{iface.name}</td>
-                    <td className="p-2">{iface.type}</td>
-                    <td className="p-2">{iface.mac || "—"}</td>
-                    <td className="p-2">
-                      {iface.running ? (
-                        <span className="text-green-500">Yes</span>
-                      ) : (
-                        <span className="text-red-500">No</span>
-                      )}
-                    </td>
-                    <td className="p-2">
-                      {iface.disabled ? (
-                        <span className="text-red-500">Yes</span>
-                      ) : (
-                        <span className="text-green-500">No</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Subnets / Address Lists */}
-      <div className="bg-gray-900 rounded-xl shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Subnets / Address Lists</h2>
-        {loadingInterfaces ? ( // we can reuse or create separate loader later
-          <div className="text-gray-400">Loading address lists...</div>
-        ) : status?.online ? (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="p-2">List</th>
-                <th className="p-2">Address</th>
-                <th className="p-2">Comment</th>
-                <th className="p-2">Disabled</th>
-              </tr>
-            </thead>
-            <tbody>
-              {status.lists && status.lists.length > 0 ? (
-                status.lists.map((item, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-gray-800 hover:bg-gray-800"
-                  >
-                    <td className="p-2">{item.list}</td>
-                    <td className="p-2">{item.address}</td>
-                    <td className="p-2">{item.comment || "—"}</td>
-                    <td className="p-2">
-                      {item.disabled ? (
-                        <span className="text-red-400">Yes</span>
-                      ) : (
-                        <span className="text-green-400">No</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="4" className="p-2 text-gray-400">
-                    No address lists found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        ) : (
-          <div className="text-red-400">
-            Router offline. Cannot load address lists.
           </div>
-        )}
+          <div className="text-right hidden sm:block">
+            <p className="text-xs text-gray-500">IP Address</p>
+            <p className="font-mono text-teal-400">{stats?.router?.ip || "—"}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* STATS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* 1. UPTIME */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-400">System Uptime</CardTitle>
+            <Clock className="h-4 w-4 text-blue-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats?.info?.uptime || "—"}</div>
+            <p className="text-xs text-gray-500 mt-1">Continuous operation</p>
+          </CardContent>
+        </Card>
+
+        {/* 2. CPU LOAD */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-400">CPU Load</CardTitle>
+            <Cpu className="h-4 w-4 text-purple-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats?.info?.cpuLoad || 0}%</div>
+            {/* Simple Progress Bar */}
+            <div className="w-full bg-gray-700 h-2 rounded-full mt-2">
+              <div 
+                className="bg-purple-500 h-2 rounded-full transition-all" 
+                style={{ width: `${stats?.info?.cpuLoad || 0}%` }}
+              ></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 3. RAM USAGE */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-400">RAM Usage</CardTitle>
+            <Server className="h-4 w-4 text-yellow-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">
+              {stats?.info?.memory?.free} <span className="text-sm text-gray-500">/ {stats?.info?.memory?.total} MB Free</span>
+            </div>
+            <div className="w-full bg-gray-700 h-2 rounded-full mt-2">
+              <div 
+                className="bg-yellow-500 h-2 rounded-full transition-all" 
+                style={{ width: `${getPercent(stats?.info?.memory?.free, stats?.info?.memory?.total)}%` }}
+              ></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 4. ACTIVE SESSIONS */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-400">Active Sessions</CardTitle>
+            <Activity className="h-4 w-4 text-green-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats?.info?.activeUsers || 0}</div>
+            <p className="text-xs text-gray-500 mt-1">Current PPPoE/Hotspot users</p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* DEVICE DETAILS FOOTER */}
+      <Card className="bg-gray-800/50 border-gray-700">
+        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="block text-gray-500">Board Name</span>
+            <span className="font-semibold text-white">{stats?.info?.board || "N/A"}</span>
+          </div>
+          <div>
+            <span className="block text-gray-500">RouterOS Version</span>
+            <span className="font-semibold text-white">{stats?.info?.version || "N/A"}</span>
+          </div>
+          <div>
+            <span className="block text-gray-500">Disk Space (Free)</span>
+            <span className="font-semibold text-white">{stats?.info?.disk?.free} MB</span>
+          </div>
+          <div>
+            <span className="block text-gray-500">Admin User</span>
+            <span className="font-semibold text-white">{stats?.router?.user || "admin"}</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

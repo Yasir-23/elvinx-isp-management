@@ -114,7 +114,7 @@ export default function AllUsers() {
       fetchUsers();
     } catch (err) {
       console.error("Delete failed:", err);
-      alert(err.response?.data?.error || "Failed to delete user");
+      toast.error(err.response?.data?.error || "Failed to delete user");
     }
   };
 
@@ -509,19 +509,43 @@ export default function AllUsers() {
                 <td className="px-3 py-2">{user.package || "-"}</td>
                 <td className="px-3 py-2">{user.salesperson || "-"}</td>
                 <td className="px-3 py-2">
-                  {user.disabled ? (
-                    <span className="px-2 py-1 rounded text-xs bg-red-600 text-white print:bg-transparent print:text-black print:border print:border-black">
-                      Disabled
-                    </span>
-                  ) : user.online ? (
-                    <span className="px-2 py-1 rounded text-xs bg-green-600 text-white print:bg-transparent print:text-black print:border print:border-black">
-                      Online
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 rounded text-xs bg-gray-600 text-white print:bg-transparent print:text-black print:border print:border-black">
-                      Offline
-                    </span>
-                  )}
+                  {(() => {
+                    // Check for Expiry
+                    const isExpired = user.expiryDate && new Date(user.expiryDate) < new Date();
+
+                    if (user.disabled) {
+                      if (isExpired) {
+                        // Orange for Expired (using your same style structure)
+                        return (
+                          <span className="px-2 py-1 rounded text-xs bg-orange-500 text-white print:bg-transparent print:text-black print:border print:border-black">
+                            Expired
+                          </span>
+                        );
+                      }
+                      // Red for Disabled
+                      return (
+                        <span className="px-2 py-1 rounded text-xs bg-red-600 text-white print:bg-transparent print:text-black print:border print:border-black">
+                          Disabled
+                        </span>
+                      );
+                    }
+
+                    // Green for Online
+                    if (user.online) {
+                      return (
+                        <span className="px-2 py-1 rounded text-xs bg-green-600 text-white print:bg-transparent print:text-black print:border print:border-black">
+                          Online
+                        </span>
+                      );
+                    }
+
+                    // Gray for Offline
+                    return (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-600 text-white print:bg-transparent print:text-black print:border print:border-black">
+                        Offline
+                      </span>
+                    );
+                  })()}
                 </td>
 
                 {/* Buttons (Hidden in screen-only) */}
@@ -565,7 +589,7 @@ export default function AllUsers() {
         </div>
 
         {/* Screen Only Footer (Pagination) */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm text-gray-400 screen-only">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-4 pb-4 text-sm text-gray-400 screen-only">
           <div>
             Showing <span className="text-white">{start}</span> to{" "}
             <span className="text-white">{end}</span> of{" "}

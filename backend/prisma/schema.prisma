@@ -124,14 +124,14 @@ model Package {
 
 model Invoice {
   id          Int      @id @default(autoincrement())
-  userId      Int
+  userId      Int?
   amount      Float
   status      String   // "paid" | "unpaid"
   invoiceDate DateTime @default(now())
   paidAt DateTime?
   createdAt   DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
 }

@@ -110,7 +110,7 @@ router.get("/", async (req, res) => {
       prisma.invoice.count({ where }),
       prisma.invoice.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { id: "desc" },
         skip: (pageNum - 1) * limitNum,
         take: limitNum,
         include: {
@@ -120,6 +120,8 @@ router.get("/", async (req, res) => {
               name: true,
               username: true,
               package: true,
+              address: true,
+              mobile: true,
             },
           },
         },

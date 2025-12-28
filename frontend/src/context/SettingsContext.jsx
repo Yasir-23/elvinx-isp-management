@@ -1,37 +1,33 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import api from "../services/api"; // ✅ use axios instance
+import api from "../services/api";
 
 const SettingsContext = createContext();
 
 function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(null);
 
-  useEffect(() => {
-    let mounted = true;
-
-    // ⛔ Don't fetch settings before login — avoid 401 errors
+  // Define the fetching logic as a reusable function
+  const fetchSettings = async () => {
     const token = localStorage.getItem("token");
+    // If no token, we can't fetch, so stop here.
     if (!token) return;
 
-    async function loadSettings() {
-      try {
-        const res = await api.get("/settings");  // ✅ uses baseURL + token
-        if (!mounted) return;
-        setSettings(res.data || null);
-      } catch (err) {
-        console.error("Failed to load settings:", err);
-      }
+    try {
+      const res = await api.get("/settings");
+      setSettings(res.data || null);
+    } catch (err) {
+      console.error("Failed to load settings:", err);
     }
+  };
 
-    loadSettings();
-
-    return () => {
-      mounted = false;
-    };
+  // Run automatically ONCE on mount (handles page refreshes)
+  useEffect(() => {
+    fetchSettings();
   }, []);
 
   return (
-    <SettingsContext.Provider value={{ settings, setSettings }}>
+    // We expose 'fetchSettings' so the Login page can call it!
+    <SettingsContext.Provider value={{ settings, setSettings, fetchSettings }}>
       {children}
     </SettingsContext.Provider>
   );
@@ -40,7 +36,7 @@ function SettingsProvider({ children }) {
 function useSettings() {
   const ctx = useContext(SettingsContext);
   if (!ctx) {
-    return { settings: null, setSettings: () => {} };
+    return { settings: null, setSettings: () => {}, fetchSettings: () => {} };
   }
   return ctx;
 }

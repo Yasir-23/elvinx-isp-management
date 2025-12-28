@@ -1,6 +1,7 @@
 import React, { useState, Suspense, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
@@ -36,12 +37,13 @@ function ErrorBoundary({ children }) {
 
 function AppShell() {
   useEffect(() => {
-    setupAutoLogout(30);
+    setupAutoLogout(60);
   }, []);
 
   return (
     <BrowserRouter>
       <FaviconUpdater />
+      <Toaster position="top-right" reverseOrder={false} />
 
       <Routes>
         {/* Public route */}

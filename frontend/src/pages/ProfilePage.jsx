@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import BandwidthGraph from "../components/BandwidthGraph";
+import { toast } from "react-hot-toast";
 
 import {
   User as UserIcon,
@@ -164,7 +165,7 @@ const ProfilePage = () => {
       .slice(0, 2) || "?";
 
   async function toggleNet() {
-    if (!profile?.id) return alert("User ID missing.");
+    if (!profile?.id) return toast.error("User ID missing.");
 
     try {
       const endpoint = profile.disabled
@@ -183,18 +184,18 @@ const ProfilePage = () => {
         return;
       }
 
-      alert("Operation failed.");
+      toast.error("Operation failed.");
     } catch (err) {
       console.error("Toggle error:", err);
       // Prevent double alert
       if (!err.response?.data?.success) {
-        alert(err.response?.data?.error || "Server error");
+        toast.error(err.response?.data?.error || "Server error");
       }
     }
   }
 
   async function deleteProfile() {
-    if (!profile?.id) return alert("User ID missing.");
+    if (!profile?.id) return toast.error("User ID missing.");
 
     if (
       !confirm(
@@ -207,22 +208,22 @@ const ProfilePage = () => {
       const res = await api.delete(`/users/${profile.id}`);
 
       if (res.data?.success) {
-        alert("User deleted successfully.");
-        window.location.href = "/users/all";
+        toast.success("User deleted successfully.");
+        window.location.href = "/users";
         return;
       }
 
-      alert("Delete failed.");
+      toast.error("Delete failed.");
     } catch (err) {
       console.error("Delete profile error:", err);
-      alert(
+      toast.error(
         err.response?.data?.error || "Server error while deleting profile."
       );
     }
   }
 
   async function handleSaveEdit() {
-    if (!profile?.id) return alert("Missing profile ID");
+    if (!profile?.id) return toast.error("Missing profile ID");
 
     // Convert price or make null
     const safePrice =
@@ -248,14 +249,14 @@ const ProfilePage = () => {
       const res = await api.put(`/users/${profile.id}`, payload);
 
       if (res.data?.success) {
-        alert("Profile updated successfully");
+        toast.success("Profile updated successfully");
         window.location.reload();
       } else {
-        alert(res.data?.error || "Update failed");
+        toast.error(res.data?.error || "Update failed");
       }
     } catch (err) {
       console.error("Update error:", err);
-      alert(err.response?.data?.error || "Server error while updating profile");
+      toast.error(err.response?.data?.error || "Server error while updating profile");
     }
   }
 
@@ -269,7 +270,7 @@ const ProfilePage = () => {
       }
     } catch (err) {
       console.error("Failed to load packages:", err);
-      alert("Unable to load package list.");
+      toast.error("Unable to load package list.");
     }
   }
 
@@ -301,14 +302,14 @@ const ProfilePage = () => {
     try {
       const res = await api.post(`/users/${profile.id}/renew`);
       if (res.data?.success) {
-        alert("User renewed successfully!");
+        toast.success("User renewed successfully!");
         window.location.reload();
       } else {
-        alert("Renew failed: " + res.data?.error);
+        toast.error("Renew failed: " + res.data?.error);
       }
     } catch (err) {
       console.error(err);
-      alert("Server error during renewal.");
+      toast.error("Server error during renewal.");
     }
   }
 
@@ -554,7 +555,7 @@ const ProfilePage = () => {
           </div>
 
           {/* Reports placeholder */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          {/* <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
               <FileText size={16} className="text-sky-400" />
               Reports (Coming Soon)
@@ -564,7 +565,7 @@ const ProfilePage = () => {
               this user. For now it’s a placeholder while we design the billing
               / reporting system.
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Right column: Service detail */}
@@ -594,11 +595,27 @@ const ProfilePage = () => {
                 value={metrics?.uptime || "-"}
               />
 
-              {/* 3 - Profile Status */}
+              {/* 3 - Profile Status (FIXED) */}
               <DetailRow
                 icon={<BadgeCheck size={16} />}
                 label="Profile Status"
-                value={profile.disabled ? "Disabled" : "Active"}
+                value={(() => {
+                   const isExpired = profile.expiryDate && new Date(profile.expiryDate) < new Date();
+                   
+                   if (profile.disabled) {
+                     return isExpired ? "Expired" : "Disabled";
+                   }
+                   return "Active";
+                })()}
+                // Optional: Add color for better visibility
+                valueClass={(() => {
+                   const isExpired = profile.expiryDate && new Date(profile.expiryDate) < new Date();
+                   
+                   if (profile.disabled) {
+                     return isExpired ? "text-orange-400" : "text-red-400";
+                   }
+                   return "text-emerald-400"; // Green
+                })()}
               />
 
               {/* 4 - Connection Type */}
@@ -780,7 +797,7 @@ const ProfilePage = () => {
                           }
                         } catch (err) {
                           console.error("Photo upload failed", err);
-                          alert("Photo upload failed");
+                          toast.error("Photo upload failed");
                         }
                       }}
                     />

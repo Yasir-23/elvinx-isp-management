@@ -3,6 +3,7 @@ import { X, Lock } from "lucide-react";
 import { useState } from "react";
 import api from "../services/api.js";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 export default function ChangeAdminPasswordModal({ onClose }) {
   const [form, setForm] = useState({
@@ -95,7 +96,7 @@ export default function ChangeAdminPasswordModal({ onClose }) {
           <button
             onClick={async () => {
               if (form.newPassword !== form.confirmPassword) {
-                alert("Passwords do not match");
+                toast.success("Passwords do not match");
                 return;
               }
 
@@ -112,7 +113,7 @@ export default function ChangeAdminPasswordModal({ onClose }) {
                 // Redirect to login
                 navigate("/login");
               } catch (err) {
-                alert(
+                toast.error(
                   err?.response?.data?.error || "Failed to update password"
                 );
               } finally {

@@ -8,57 +8,61 @@ const router = Router();
 // Convert BigInt → Number (or string if too large)
 function sanitizeBigInt(obj) {
   return JSON.parse(
-    JSON.stringify(
-      obj,
-      (_, value) =>
-        typeof value === "bigint" ? Number(value) : value
+    JSON.stringify(obj, (_, value) =>
+      typeof value === "bigint" ? Number(value) : value
     )
   );
 }
 
-
 /**
  * POST /api/users
- * - Create DB user and add to MikroTik
+ * - Create DB user (Expired by default)
+ * - Add to MikroTik (Disabled by default)
  */
 router.post("/users", async (req, res) => {
   const data = req.body || {};
+
+  // 1️⃣ LOGIC FIX: Calculate Expiry BEFORE creating the user
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // Enforce these values
+  data.disabled = true;
+  data.expiryDate = yesterday;
+
   try {
+    // 2️⃣ Now create the user with the correct "Expired" data
     const user = await prisma.user.create({ data });
 
-    // create in MikroTik (best-effort)
+    // 3️⃣ Create in MikroTik (Force Disabled)
     try {
       await withConn(async (conn) => {
         await conn.write("/ppp/secret/add", [
           `=name=${data.username}`,
           `=password=${data.password}`,
           `=service=${data.connection || "pppoe"}`,
+          `=disabled=yes`, // Enforce Disabled in Router
           ...(data.package ? [`=profile=${data.package}`] : []),
         ]);
       });
     } catch (mtErr) {
-      console.warn(
-        "Failed to add user to MikroTik (but DB saved):",
-        mtErr?.message || mtErr
-      );
+      console.warn("MikroTik creation warning:", mtErr.message);
     }
 
     res.json({ success: true, user });
   } catch (err) {
-  console.error(err);
-
-  if (err.code === "P2002") {
-    return res.status(400).json({
+    console.error(err);
+    if (err.code === "P2002") {
+      return res.status(400).json({
+        success: false,
+        error: "Username already exists. Please choose another one.",
+      });
+    }
+    res.status(500).json({
       success: false,
-      error: "Username already exists. Please choose another one.",
+      error: "Failed to create user",
     });
   }
-
-  res.status(500).json({
-    success: false,
-    error: "Failed to create user",
-  });
-}
 });
 
 /**
@@ -134,7 +138,10 @@ router.get("/users", async (req, res) => {
         return Array.isArray(res) ? res : [];
       });
     } catch (mtErr) {
-      console.warn("⚠ Failed to fetch active PPP sessions:", mtErr?.message || mtErr);
+      console.warn(
+        "⚠ Failed to fetch active PPP sessions:",
+        mtErr?.message || mtErr
+      );
       activeList = [];
     }
 
@@ -161,17 +168,15 @@ router.get("/users", async (req, res) => {
           connection: u.connection,
           salesperson: u.salesperson,
           disabled: u.disabled,
+          expiryDate: u.expiryDate,
           online: isOnline, // ✅ REAL-TIME STATUS
           createdAt: u.createdAt,
 
           // numeric fields safely converted
           balance: u.balance == null ? null : Number(u.balance),
-          packagePrice:
-            u.packagePrice == null ? null : Number(u.packagePrice),
+          packagePrice: u.packagePrice == null ? null : Number(u.packagePrice),
 
-          usedBytesTotal: u.usedBytesTotal
-            ? Number(u.usedBytesTotal)
-            : 0,
+          usedBytesTotal: u.usedBytesTotal ? Number(u.usedBytesTotal) : 0,
           lastBytesSnapshot: u.lastBytesSnapshot
             ? Number(u.lastBytesSnapshot)
             : 0,
@@ -191,7 +196,6 @@ router.get("/users", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 /**
  * POST /api/users/:id/disable  and /enable
@@ -220,7 +224,10 @@ router.post("/users/:id/disable", async (req, res) => {
         }
       });
     } catch (mtErr) {
-      console.warn("Failed to disable secret on MikroTik:", mtErr?.message || mtErr);
+      console.warn(
+        "Failed to disable secret on MikroTik:",
+        mtErr?.message || mtErr
+      );
     }
 
     // =====================================================
@@ -241,13 +248,11 @@ router.post("/users/:id/disable", async (req, res) => {
       console.warn("Failed to remove active PPP session:", err.message);
     }
     res.json({ success: true, user: updated });
-
   } catch (err) {
     console.error("POST disable error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 router.post("/users/:id/enable", async (req, res) => {
   const id = Number(req.params.id);
@@ -292,10 +297,12 @@ router.put("/users/:id", async (req, res) => {
     // Convert "dataLimitGB" from frontend to Bytes for DB
     if (data.dataLimitGB !== undefined) {
       if (data.dataLimitGB === "" || data.dataLimitGB === null) {
-         data.dataLimit = null; 
+        data.dataLimit = null;
       } else {
-         // GB to Bytes: GB * 1024 * 1024 * 1024
-         data.dataLimit = BigInt(Math.floor(Number(data.dataLimitGB) * 1073741824));
+        // GB to Bytes: GB * 1024 * 1024 * 1024
+        data.dataLimit = BigInt(
+          Math.floor(Number(data.dataLimitGB) * 1073741824)
+        );
       }
       // Remove the helper field so Prisma doesn't crash
       delete data.dataLimitGB;
@@ -413,9 +420,9 @@ router.delete("/users/:id", async (req, res) => {
 
     res.json({
       success: true,
-      message: "User disconnected, removed from MikroTik & deleted from database",
+      message:
+        "User disconnected, removed from MikroTik & deleted from database",
     });
-
   } catch (err) {
     console.error("Delete user error:", err);
     res.status(500).json({
@@ -424,7 +431,6 @@ router.delete("/users/:id", async (req, res) => {
     });
   }
 });
-
 
 /**
  * POST /api/users/:id/renew
@@ -435,10 +441,12 @@ router.delete("/users/:id", async (req, res) => {
 router.post("/users/:id/renew", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
+    if (!id)
+      return res.status(400).json({ success: false, error: "Invalid ID" });
 
     const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found" });
 
     // 🕒 CALCULATE NEW EXPIRY (Now + 30 Days)
     const newExpiryDate = new Date();
@@ -448,29 +456,35 @@ router.post("/users/:id/renew", async (req, res) => {
     try {
       await withConn(async (conn) => {
         // Enable Secret
-        const secrets = await conn.write("/ppp/secret/print", [`?name=${user.username}`]);
+        const secrets = await conn.write("/ppp/secret/print", [
+          `?name=${user.username}`,
+        ]);
         if (secrets && secrets[0]) {
-           const rid = secrets[0][".id"];
-           await conn.write("/ppp/secret/set", [`=.id=${rid}`, "=disabled=no"]);
+          const rid = secrets[0][".id"];
+          await conn.write("/ppp/secret/set", [`=.id=${rid}`, "=disabled=no"]);
         }
 
         // Kill Active Session
-        const active = await conn.write("/ppp/active/print", [`?name=${user.username}`]);
+        const active = await conn.write("/ppp/active/print", [
+          `?name=${user.username}`,
+        ]);
         if (active && active[0]) {
-           const activeId = active[0][".id"];
-           await conn.write("/ppp/active/remove", [`=.id=${activeId}`]);
-           console.log(`Renew: Kicked user ${user.username}`);
+          const activeId = active[0][".id"];
+          await conn.write("/ppp/active/remove", [`=.id=${activeId}`]);
+          console.log(`Renew: Kicked user ${user.username}`);
         }
 
         // 2️⃣ WAIT FOR DEATH (Polling Loop) - The Critical Fix
         // We check every 500ms (max 3 seconds) to ensure the session is actually gone.
         for (let i = 0; i < 6; i++) {
-          const check = await conn.write("/ppp/active/print", [`?name=${user.username}`]);
+          const check = await conn.write("/ppp/active/print", [
+            `?name=${user.username}`,
+          ]);
           if (check.length === 0) {
             console.log("Renew: Session confirmed dead.");
             break;
           }
-          await new Promise(r => setTimeout(r, 500)); // Wait 500ms
+          await new Promise((r) => setTimeout(r, 500)); // Wait 500ms
         }
       });
     } catch (mtErr) {
@@ -482,19 +496,20 @@ router.post("/users/:id/renew", async (req, res) => {
       where: { id },
       data: {
         usedBytesTotal: 0,
-        lastBytesSnapshot: 0, 
+        lastBytesSnapshot: 0,
         disabled: false,
         expiryDate: newExpiryDate,
       },
     });
 
-    res.json({ success: true, message: "User renewed for 30 days. Session reset confirmed." });
-
+    res.json({
+      success: true,
+      message: "User renewed for 30 days. Session reset confirmed.",
+    });
   } catch (err) {
     console.error("Renew error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 export default router;

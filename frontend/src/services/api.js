@@ -1,8 +1,3 @@
-// import axios from 'axios';
-// const api = axios.create({ baseURL: '/api', timeout: 10000 });
-// export default api;
-
-
 // frontend/src/services/api.js
 import axios from 'axios';
 
@@ -35,5 +30,33 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+// -----------------------------------------------------------------------------
+// 2. RESPONSE INTERCEPTOR (Handles 401 Errors)
+// -----------------------------------------------------------------------------
+api.interceptors.response.use(
+  (response) => {
+    // If the response is good, just pass it along
+    return response;
+  },
+  (error) => {
+    // Check if the error is 401 (Unauthorized)
+    if (error.response && error.response.status === 401) {
+      console.warn("Session expired or invalid. Redirecting to login...");
+
+      // 1. Clear the bad credentials
+      localStorage.removeItem('token');
+      localStorage.removeItem('admin');
+
+      // 2. Force redirect to Login page (if not already there)
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    
+    // Pass the error to your specific catch blocks (so toasts can still show)
+    return Promise.reject(error);
+  }
+);
 
 export default api;
