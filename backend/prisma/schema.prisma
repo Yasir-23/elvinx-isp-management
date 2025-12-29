@@ -51,6 +51,7 @@ model User {
   lastBytesSnapshot BigInt  @default(0)
 
   invoices Invoice[]
+  @@map("user")
 }
 
 model Setting {
@@ -85,6 +86,7 @@ model Setting {
 
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
+  @@map("setting")
 }
 
 model Admin {
@@ -98,6 +100,7 @@ model Admin {
   photoUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  @@map("admin")
 }
 
 model Staff {
@@ -110,6 +113,7 @@ model Staff {
 
   // Relation: staff → users
   users     User[]
+  @@map("staff")
 }
 
 model Package {
@@ -120,6 +124,7 @@ model Package {
   regularPrice Int      @default(0)
   ispCost      Int      @default(0)
   createdAt DateTime @default(now())
+  @@map("package")
 }
 
 model Invoice {
@@ -134,6 +139,7 @@ model Invoice {
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@map("invoice")
 }
 
 

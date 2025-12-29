@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # 1. Database Service (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: elvinx_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: elvinx_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - elvinx_network
+
+  # 2. Backend Service (Node.js API)
+  backend:
+    build: ./backend
+    container_name: elvinx_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      # Tells Prisma to connect to the 'db' container
+      DATABASE_URL: mysql://root:rootpassword@db:3306/elvinx_db
+    depends_on:
+      - db
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - elvinx_network
+
+  # 3. Frontend Service (React + Nginx)
+  frontend:
+    build: ./frontend
+    container_name: elvinx_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - elvinx_network
+
+volumes:
+  mysql_data:
+
+networks:
+  elvinx_network:
+    driver: bridge
