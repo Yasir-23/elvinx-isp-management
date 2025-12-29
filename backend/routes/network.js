@@ -251,6 +251,31 @@ router.get("/auto-config", async (req, res) => {
   }
 });
 
+// ===================
+// POST /api/network/reboot
+// REBOOT MIKROTIK ROUTER
+// ===================
+router.post("/reboot", async (req, res) => {
+  try {
+    await withConn(async (conn) => {
+      // Execute reboot. This often causes an immediate socket disconnect error.
+      return await conn.write("/system/reboot");
+    });
+
+    res.json({ success: true, message: "Reboot command sent successfully." });
+  } catch (err) {
+    // If the router reboots instantly, the connection drops and throws an error.
+    // We consider "Connection closed" errors as a SUCCESS here.
+    const isDisconnect = err.message.includes("closed") || err.message.includes("ended") || err.message.includes("destroy");
+    
+    if (isDisconnect) {
+      res.json({ success: true, message: "Rebooting now (Connection dropped as expected)." });
+    } else {
+      console.error("❌ Reboot failed:", err.message);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+});
 
 
 export default router;
