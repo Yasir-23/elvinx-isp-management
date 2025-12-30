@@ -18,6 +18,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import AddUserModal from "../components/AddUserModal";
+import { toast } from "react-hot-toast";
 
 export default function AllUsers() {
   const navigate = useNavigate();
@@ -77,17 +78,33 @@ export default function AllUsers() {
     /* Enable/Disable function */
   }
   const toggleUserStatus = async (user) => {
+    if (!user?.id) {
+      toast.error("User ID missing.");
+      return;
+    }
+
     try {
-      if (user.disabled) {
-        await api.post(`/users/${user.id}/enable`);
-      } else {
-        await api.post(`/users/${user.id}/disable`);
+      const endpoint = user.disabled
+        ? `/users/${user.id}/enable`
+        : `/users/${user.id}/disable`;
+
+      const res = await api.post(endpoint);
+
+      if (res.data?.success) {
+        toast.success(
+          `User ${user.disabled ? "enabled" : "disabled"} successfully.`
+        );
+        return;
       }
+
+      toast.error("Operation failed.");
     } catch (err) {
-      // Log only — DO NOT alert
       console.warn("Toggle warning (ignored):", err);
+
+      // Show server error if available
+      toast.error(err.response?.data?.error || "Server error");
     } finally {
-      // ✅ ALWAYS refresh table from backend
+      // ✅ KEEP existing behavior
       fetchUsers();
     }
   };

@@ -17,21 +17,21 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toast } from "react-hot-toast";
 
 export default function UserTable({ title = "All Users" }) {
+  const navigate = useNavigate();
+  const [users, setUsers] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("id");
+  const [order, setOrder] = useState("desc");
+  const [copySuccess, setCopySuccess] = useState(false);
 
-    const navigate = useNavigate();
-    const [users, setUsers] = useState([]);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState("");
-    const [sort, setSort] = useState("id");
-    const [order, setOrder] = useState("desc");
-    const [copySuccess, setCopySuccess] = useState(false);
-
-    const fetchUsers = async () => {
+  const fetchUsers = async () => {
     try {
       setLoading(true);
 
@@ -76,17 +76,33 @@ export default function UserTable({ title = "All Users" }) {
     /* Enable/Disable function */
   }
   const toggleUserStatus = async (user) => {
+    if (!user?.id) {
+      toast.error("User ID missing.");
+      return;
+    }
+
     try {
-      if (user.disabled) {
-        await api.post(`/users/${user.id}/enable`);
-      } else {
-        await api.post(`/users/${user.id}/disable`);
+      const endpoint = user.disabled
+        ? `/users/${user.id}/enable`
+        : `/users/${user.id}/disable`;
+
+      const res = await api.post(endpoint);
+
+      if (res.data?.success) {
+        toast.success(
+          `User ${user.disabled ? "enabled" : "disabled"} successfully.`
+        );
+        return;
       }
+
+      toast.error("Operation failed.");
     } catch (err) {
-      // Log only — DO NOT alert
       console.warn("Toggle warning (ignored):", err);
+
+      // Show server error if available
+      toast.error(err.response?.data?.error || "Server error");
     } finally {
-      // ✅ ALWAYS refresh table from backend
+      // ✅ KEEP existing behavior
       fetchUsers();
     }
   };
@@ -95,25 +111,39 @@ export default function UserTable({ title = "All Users" }) {
     /* Delete user function */
   }
   const deleteUser = async (user) => {
+    if (!user?.id) {
+      toast.error("User ID missing.");
+      return;
+    }
+
     const ok = window.confirm(
       `Delete "${user.username}"?\nThis will remove the user from MikroTik AND database.`
     );
     if (!ok) return;
 
     try {
-      await api.delete(`/users/${user.id}`);
+      const res = await api.delete(`/users/${user.id}`);
 
-      // If you deleted the last row on this page, go back a page
-      if (users.length === 1 && page > 1) {
-        setPage(page - 1); // useEffect will fetch
+      if (res.data?.success) {
+        toast.success("User deleted successfully.");
+
+        // If last row on this page → go back one page
+        if (users.length === 1 && page > 1) {
+          setPage(page - 1); // useEffect will fetch
+          return;
+        }
+
+        // Otherwise refresh current page
+        fetchUsers();
         return;
       }
 
-      // Otherwise just refresh this page
-      fetchUsers();
+      toast.error("Delete failed.");
     } catch (err) {
       console.error("Delete failed:", err);
-      toast.error(err.response?.data?.error || "Failed to delete user");
+      toast.error(
+        err.response?.data?.error || "Server error while deleting user."
+      );
     }
   };
 
@@ -503,7 +533,8 @@ export default function UserTable({ title = "All Users" }) {
                 <td className="px-3 py-2">
                   {(() => {
                     // Check for Expiry
-                    const isExpired = user.expiryDate && new Date(user.expiryDate) < new Date();
+                    const isExpired =
+                      user.expiryDate && new Date(user.expiryDate) < new Date();
 
                     if (user.disabled) {
                       if (isExpired) {

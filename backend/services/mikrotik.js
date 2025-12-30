@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-async function getRouterConfig() {
+export async function getRouterConfig() {
   const settings = await prisma.setting.findFirst({
     orderBy: { id: "desc" }, // latest row
   });

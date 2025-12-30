@@ -39,6 +39,60 @@ BigInt.prototype.toJSON = function () {
 app.use("/api/auth", authRouter);  // <-- DO NOT MOVE THIS
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));  // public
 
+// ============================================================
+// NEW: Safe Mode Middleware (Place this HERE)
+// ============================================================
+import { getRouterConfig } from "./services/mikrotik.js"; // Ensure this is imported
+import net from "net";
+
+const mikrotikGuard = async (req, res, next) => {
+  // 1. ALWAYS Allow Read Operations (GET)
+  // This ensures your Dashboard, Tables, and Invoices ALWAYS load from DB.
+  if (req.method === "GET") {
+    return next();
+  }
+
+  // 2. ALWAYS Allow Settings & Admin
+  // (So you can update the IP/User/Pass if they are wrong)
+  if (req.originalUrl.startsWith("/api/settings") || req.originalUrl.startsWith("/api/admin")) {
+    return next();
+  }
+
+  // 3. For WRITE Operations (POST, PUT, DELETE), check connection
+  // This prevents creating users in DB if MikroTik is dead.
+  try {
+    const config = await getRouterConfig(); // Get creds from DB
+    if (!config) return next(); // If no config, let the route handle the error
+
+    // Quick Ping Test to MikroTik API Port (usually 8728)
+    const socket = new net.Socket();
+    socket.setTimeout(2000); // 2 second timeout
+    
+    socket.connect(config.port || 8728, config.host, () => {
+      socket.destroy();
+      next(); // Connection success! Proceed to controller.
+    });
+
+    socket.on('error', (err) => {
+      socket.destroy();
+      res.status(503).json({ error: "MikroTik Disconnected. Action blocked to prevent data mismatch." });
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      res.status(503).json({ error: "MikroTik Timeout. Action blocked." });
+    });
+
+  } catch (error) {
+    // If DB fails or other error, block the write to be safe
+    res.status(503).json({ error: "System Error. Cannot verify router connection." });
+  }
+};
+
+// Apply the Guard
+app.use("/api", mikrotikGuard); 
+// ============================================================
+
 // ----------------------
 // Protected Routes (all after /api/auth)
 // ----------------------
