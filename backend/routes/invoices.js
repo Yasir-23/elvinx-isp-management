@@ -1,3 +1,5 @@
+import { requireAuth } from "../middleware/authMiddleware.js";
+import { hierarchyScope } from "../middleware/hierarchyScope.js";
 import { Router } from "express";
 import prisma from "../lib/prismaClient.js";
 
@@ -7,7 +9,7 @@ const router = Router();
  * POST /api/invoices
  * Create manual invoice (amount derived from package price)
  */
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, hierarchyScope, async (req, res) => {
   try {
     const { userId, status, invoiceDate } = req.body;
 
@@ -31,6 +33,7 @@ router.post("/", async (req, res) => {
       select: {
         id: true,
         package: true,
+        staffId: true,
       },
     });
 
@@ -39,6 +42,10 @@ router.post("/", async (req, res) => {
         success: false,
         error: "User or user package not found",
       });
+    }
+
+    if (req.scopedStaffIds !== null && !req.scopedStaffIds.includes(user.staffId)) {
+        return res.status(403).json({ success: false, error: "Forbidden: Cannot invoice this user" });
     }
 
     // 2️⃣ Fetch package price
@@ -148,7 +155,7 @@ router.get("/", async (req, res) => {
  * PUT /api/invoices/:id/status
  * Mark invoice as paid (unpaid -> paid only)
  */
-router.put("/:id/status", async (req, res) => {
+router.put("/:id/status", requireAuth, hierarchyScope, async (req, res) => {
   try {
     const invoiceId = parseInt(req.params.id, 10);
     const { status, paidAt } = req.body;
@@ -210,7 +217,7 @@ router.put("/:id/status", async (req, res) => {
  * DELETE /api/invoices/:id
  * Delete invoice (paid or unpaid)
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, hierarchyScope, async (req, res) => {
   try {
     const invoiceId = parseInt(req.params.id, 10);
 

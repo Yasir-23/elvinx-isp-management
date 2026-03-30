@@ -4,6 +4,7 @@ import axios from "axios";
 import { useSettings } from "../context/SettingsContext";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
+import { RefreshCw } from "lucide-react";
 
 /*
   Settings page:
@@ -12,10 +13,10 @@ import { toast } from "react-hot-toast";
   - file inputs for logo & favicon (no preview in form)
 */
 
-
 const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const [settings, setSettings] = useState({
     logoUrl: null,
@@ -143,6 +144,22 @@ const Settings = () => {
       toast.error("Failed to save settings — check server logs for details.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await api.post("/settings/sync");
+      if (res.data.success) {
+        toast.success(res.data.message || "Data synchronized successfully!");
+      } else {
+        toast.error(res.data.error || "Sync failed");
+      }
+    } catch(err) {
+      toast.error(err.response?.data?.error || "Server error during sync.");
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -399,6 +416,27 @@ const Settings = () => {
           </button>
         </div>
       </form>
+
+      {/* Sync Data SECTION */}
+      <div className="mt-8 bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg">
+        <div className="flex items-center gap-3 mb-4">
+          <RefreshCw className="text-teal-400" size={24} />
+          <h2 className="text-lg font-semibold text-white">Data Synchronization</h2>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          Manually import existing Packages and Users directly from the MikroTik hardware. This will map router-level configurations into this SaaS database.
+        </p>
+        <button
+          type="button"
+          onClick={handleSync}
+          disabled={syncing}
+          className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded transition disabled:opacity-50"
+        >
+          <RefreshCw size={18} className={syncing ? "animate-spin" : ""} />
+          {syncing ? "Syncing..." : "Sync Data from Router"}
+        </button>
+      </div>
+
     </div>
   );
 };

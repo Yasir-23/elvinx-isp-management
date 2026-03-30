@@ -2,6 +2,8 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
+import { requireAuth } from "../middleware/authMiddleware.js";
+import { syncMikrotikPackages, syncMikrotikUsers } from "../services/mikrotikSync.js";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -36,11 +38,13 @@ router.get("/", async (req, res) => {
 // ---------------------------------------------------
 router.post(
   "/",
+  requireAuth,
   upload.fields([
     { name: "logo", maxCount: 1 },
     { name: "favicon", maxCount: 1 },
   ]),
   async (req, res) => {
+    if (req.user.role !== "SUPER_ADMIN") return res.status(403).json({ success: false, error: "Forbidden" });
     try {
       const data = {
         companyName: req.body.companyName || null,
@@ -102,5 +106,26 @@ router.post(
     }
   }
 );
+
+// ---------------------------------------------------
+// POST /api/settings/sync → Trigger manual hardware sync
+// ---------------------------------------------------
+router.post("/sync", requireAuth, async (req, res) => {
+  try {
+    if (req.user.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Only SUPER_ADMIN can trigger router sync." });
+    }
+    const pkgRes = await syncMikrotikPackages();
+    const userRes = await syncMikrotikUsers();
+
+    return res.json({ 
+      success: true, 
+      message: `Sync complete. ${pkgRes.synced} packages and ${userRes.synced} users processed.`
+    });
+  } catch (err) {
+    console.error("Manual sync error:", err);
+    return res.status(500).json({ success: false, error: "Sync failed. Check hardware connectivity." });
+  }
+});
 
 export default router;

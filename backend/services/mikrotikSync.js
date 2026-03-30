@@ -1,6 +1,46 @@
 import prisma from "../lib/prismaClient.js";
 import { connectRouter, withConn } from "./mikrotik.js";
 
+export async function syncMikrotikPackages() {
+  let synced = 0;
+  try {
+    await withConn(async (conn) => {
+      const profiles = await conn.write("/ppp/profile/print", []);
+      if (!Array.isArray(profiles)) return;
+
+      for (const p of profiles) {
+        const name = p.name;
+        if (!name || name === "default" || name === "default-encryption") continue;
+
+        const rateLimit = p["rate-limit"] || "";
+        const exists = await prisma.package.findFirst({ where: { name } });
+        
+        if (exists) {
+          await prisma.package.update({
+            where: { id: exists.id },
+            data: { rateLimit }
+          });
+        } else {
+          await prisma.package.create({
+            data: {
+              name,
+              displayName: name,
+              rateLimit,
+              regularPrice: 0,
+              ispCost: 0,
+            }
+          });
+        }
+        synced++;
+      }
+    });
+    return { success: true, synced };
+  } catch (err) {
+    console.error("syncMikrotikPackages error:", err);
+    throw err;
+  }
+}
+
 /**
  * syncMikrotikUsers()
  * - Fetches PPP secrets + active sessions from MikroTik

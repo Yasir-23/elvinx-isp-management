@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import PrivateRoute from "./components/PrivateRoute";
 import { setupAutoLogout } from "./utils/autoLogout";
 import MainLayout from "./layouts/MainLayout";
+import StaffManagement from './pages/StaffManagement';
 
 import "./styles.css";
 import { SettingsProvider } from "./context/SettingsContext";
@@ -119,7 +120,7 @@ function AppShell() {
         <Route
           path="/settings"
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={["SUPER_ADMIN"]}>
               <MainLayout>
                 <Settings />
               </MainLayout>
@@ -130,7 +131,7 @@ function AppShell() {
         <Route
           path="/network"
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={["SUPER_ADMIN"]}>
               <MainLayout>
                 <NetworkPage />
               </MainLayout>
@@ -138,7 +139,7 @@ function AppShell() {
           }
         />
 
-          <Route
+        <Route
           path="/admin"
           element={
             <PrivateRoute>
@@ -152,7 +153,7 @@ function AppShell() {
         <Route
           path="/addpackage"
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={["SUPER_ADMIN", "FRANCHISE"]}>
               <MainLayout>
                 <AddPackagePage />
               </MainLayout>
@@ -163,7 +164,7 @@ function AppShell() {
         <Route
           path="/allpackages"
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={["SUPER_ADMIN", "FRANCHISE"]}>
               <MainLayout>
                 <AllPackages />
               </MainLayout>
@@ -174,7 +175,7 @@ function AppShell() {
         <Route
           path="packages/:id"
           element={
-            <PrivateRoute>
+            <PrivateRoute allowedRoles={["SUPER_ADMIN", "FRANCHISE"]}>
               <MainLayout>
                 <PackageProfile />
               </MainLayout>
@@ -199,6 +200,17 @@ function AppShell() {
             <PrivateRoute>
               <MainLayout>
                 <BrowseBills />
+              </MainLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="staff"
+          element={
+            <PrivateRoute>
+              <MainLayout>
+                <StaffManagement />
               </MainLayout>
             </PrivateRoute>
           }

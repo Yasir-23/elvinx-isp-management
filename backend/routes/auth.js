@@ -12,22 +12,23 @@ router.post("/login", async (req, res) => {
     if (!username || !password)
       return res.status(400).json({ success: false, error: "Missing credentials" });
 
-    // Try admin table first
-    const admin = await prisma.admin.findUnique({ where: { username } });
-    if (!admin) {
+    // Look up user in the unified Staff table
+    const staff = await prisma.staff.findUnique({ where: { username } });
+    if (!staff) {
       return res
         .status(401)
         .json({ success: false, error: "Invalid credentials" });
     }
 
-    const ok = await bcrypt.compare(password, admin.password);
+    const ok = await bcrypt.compare(password, staff.password);
     if (!ok)
       return res
         .status(401)
         .json({ success: false, error: "Invalid credentials" });
 
+    // Payload includes the required user's ID and role
     const token = jwt.sign(
-      { id: admin.id, username: admin.username, role: admin.role },
+      { id: staff.id, username: staff.username, role: staff.role },
       process.env.JWT_SECRET,
       { expiresIn: "12h" }
     );
@@ -36,11 +37,12 @@ router.post("/login", async (req, res) => {
       success: true,
       token,
       user: {
-        id: admin.id,
-        username: admin.username,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
+        id: staff.id,
+        username: staff.username,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+        walletBalance: staff.walletBalance, // Optionally return balance on login
       },
     });
   } catch (err) {

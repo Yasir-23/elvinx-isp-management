@@ -9,22 +9,22 @@ async function main() {
 
   const hash = await bcrypt.hash(password, 10);
 
-  const existing = await prisma.user.findUnique({ where: { username } });
+  const existing = await prisma.staff.findUnique({ where: { username } });
   if (existing) {
-    console.log("User already exists:", username);
+    console.log("Super Admin already exists:", username);
     process.exit(0);
   }
 
-  const user = await prisma.user.create({
+  const staff = await prisma.staff.create({
     data: {
       username,
       password: hash,
       name,
-      email: null,
+      role: "SUPER_ADMIN",
     },
   });
 
-  console.log("Created admin:", user.username, "password:", password);
+  console.log("Created Super Admin:", staff.username, "password:", password);
   process.exit(0);
 }
 

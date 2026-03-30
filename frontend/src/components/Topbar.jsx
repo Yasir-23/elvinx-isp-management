@@ -38,6 +38,9 @@ export default function Topbar({
     };
 
     fetchAdmin();
+
+    window.addEventListener("walletUpdated", fetchAdmin);
+    return () => window.removeEventListener("walletUpdated", fetchAdmin);
   }, []);
 
   useEffect(() => {
@@ -106,8 +109,11 @@ export default function Topbar({
           onClick={() => setOpen((p) => !p)}
           className="flex items-center gap-3 focus:outline-none"
         >
-          <div className="hidden md:flex text-right text-sm font-medium text-white">
-            {admin?.name || "Admin"}
+          <div className="hidden md:flex flex-col text-right text-sm font-medium text-white">
+            <span>{admin?.name || "Admin"}</span>
+            <span className="text-xs text-sky-400">
+              Wallet: {admin?.walletBalance != null ? `PKR ${admin.walletBalance.toLocaleString()}` : "0"}
+            </span>
           </div>
 
           <img

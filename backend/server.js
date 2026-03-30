@@ -22,6 +22,8 @@ import adminRoutes from "./routes/admin.js";
 import packageRouter from "./routes/packages.js";
 import invoiceRoutes from "./routes/invoices.js";
 import { checkQuotas } from "./services/quotaEnforcer.js";
+import walletRoutes from './routes/wallet.js';
+import staffRoutes from './routes/staff.js';
 
 const app = express();
 app.use(cors());
@@ -107,6 +109,8 @@ app.use("/api/dashboard", requireAuth, dashboardRoutes);
 app.use("/api/admin",requireAuth, adminRoutes);
 app.use("/api/packages", requireAuth, packageRouter);
 app.use("/api/invoices",requireAuth, invoiceRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/staff', staffRoutes);
 
 
 // sync endpoint (keeps behavior you had)

@@ -27,7 +27,8 @@ router.get("/me", requireAuth, async (req, res) => {
   try {
     const adminId = req.user.id;
 
-    const admin = await prisma.admin.findUnique({
+    // Transitioned to unified Staff model
+    const admin = await prisma.staff.findUnique({
       where: { id: adminId },
       select: {
         id: true,
@@ -36,14 +37,15 @@ router.get("/me", requireAuth, async (req, res) => {
         email: true,
         role: true,
         active: true,
-        photoUrl: true, // will exist after we add field
+        walletBalance: true, // Included wallet balance logic for hierarchy
+        photoUrl: true, 
         createdAt: true,
         updatedAt: true,
       },
     });
 
     if (!admin) {
-      return res.status(404).json({ success: false, error: "Admin not found" });
+      return res.status(404).json({ success: false, error: "User not found" });
     }
 
     return res.json({
@@ -76,7 +78,7 @@ router.put("/profile", requireAuth, async (req, res) => {
     }
 
     // Check if username already exists (excluding self)
-    const existing = await prisma.admin.findFirst({
+    const existing = await prisma.staff.findFirst({
       where: {
         username,
         NOT: { id: adminId },
@@ -89,7 +91,7 @@ router.put("/profile", requireAuth, async (req, res) => {
         .json({ success: false, error: "Username already in use" });
     }
 
-    const updatedAdmin = await prisma.admin.update({
+    const updatedAdmin = await prisma.staff.update({
       where: { id: adminId },
       data: {
         name,
@@ -103,6 +105,7 @@ router.put("/profile", requireAuth, async (req, res) => {
         email: true,
         role: true,
         active: true,
+        walletBalance: true, // Appended here too for frontend consistency
         photoUrl: true,
         updatedAt: true,
       },
@@ -143,7 +146,7 @@ router.post(
       const baseUrl = process.env.BASE_URL || "http://localhost:3000";
       const photoUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
-      const updatedAdmin = await prisma.admin.update({
+      const updatedAdmin = await prisma.staff.update({
         where: { id: adminId },
         data: { photoUrl },
         select: {
@@ -183,7 +186,7 @@ router.put("/password", requireAuth, async (req, res) => {
     }
 
     // Fetch admin
-    const admin = await prisma.admin.findUnique({
+    const admin = await prisma.staff.findUnique({
       where: { id: adminId },
     });
 
@@ -211,7 +214,7 @@ router.put("/password", requireAuth, async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
-    await prisma.admin.update({
+    await prisma.staff.update({
       where: { id: adminId },
       data: { password: hashedPassword },
     });
@@ -228,6 +231,5 @@ router.put("/password", requireAuth, async (req, res) => {
     });
   }
 });
-
 
 export default router;

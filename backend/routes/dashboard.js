@@ -2,41 +2,65 @@ import { Router } from "express";
 import { withConn } from "../services/mikrotik.js";
 import prisma from "../lib/prismaClient.js";
 
+import { requireAuth } from "../middleware/authMiddleware.js";
+import { hierarchyScope } from "../middleware/hierarchyScope.js";
+
 const router = Router();
 
 /**
  * GET /api/dashboard/user-stats
  */
-router.get("/user-stats", async (req, res) => {
+router.get("/user-stats", requireAuth, hierarchyScope, async (req, res) => {
   try {
     const now = new Date();
 
+    const baseWhere = {};
+    if (req.scopedStaffIds !== null) {
+      baseWhere.staffId = { in: req.scopedStaffIds };
+    }
+
     // 1️⃣ Total users from DB
-    const totalUsers = await prisma.user.count();
+    const totalUsers = await prisma.user.count({ where: baseWhere });
 
     // 2️⃣ Active users = not disabled
-    const activeUsers = await prisma.user.count({ where: { disabled: false } });
+    const activeUsers = await prisma.user.count({ where: { ...baseWhere, disabled: false } });
 
     // 3️⃣ Calculate Expired vs Manual Disabled
     // "Expired" = Disabled AND Expiry Date is in the past
     const expiredUsers = await prisma.user.count({
       where: {
+        ...baseWhere,
         disabled: true,
         expiryDate: { lt: now }, 
       },
     });
 
     // Total Disabled (includes both Expired and Manual)
-    const totalDisabled = await prisma.user.count({ where: { disabled: true } });
+    const totalDisabled = await prisma.user.count({ where: { ...baseWhere, disabled: true } });
     
     // "Manual Disabled" = Total Disabled - Expired
     const manualDisabled = totalDisabled - expiredUsers;
 
     // 4️⃣ MikroTik active sessions (for Online count)
     const activeSessions = await withConn(async (conn) => {
-      return await conn.write("/ppp/active/print");
+      const result = await conn.write("/ppp/active/print");
+      return Array.isArray(result) ? result : [];
+    }).catch(err => {
+      console.warn("Dashboard mt error", err.message);
+      return [];
     });
-    const onlineUsers = (activeSessions || []).length;
+
+    let onlineUsers = 0;
+    if (req.scopedStaffIds !== null) {
+      const allowedUsers = await prisma.user.findMany({
+        where: baseWhere,
+        select: { username: true }
+      });
+      const allowedUsernames = new Set(allowedUsers.map(u => u.username));
+      onlineUsers = activeSessions.filter(session => allowedUsernames.has(session.name)).length;
+    } else {
+      onlineUsers = activeSessions.length;
+    }
 
     // 5️⃣ Chart Data: User Status
     // Offline = Total - Online - TotalDisabled
@@ -52,6 +76,7 @@ router.get("/user-stats", async (req, res) => {
     // 6️⃣ Chart Data: Top 5 Packages
     const packageGroups = await prisma.user.groupBy({
       by: ['package'],
+      where: baseWhere,
       _count: { package: true },
       orderBy: { _count: { package: 'desc' } },
       take: 5,

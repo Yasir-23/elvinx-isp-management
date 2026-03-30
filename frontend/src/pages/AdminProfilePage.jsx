@@ -96,27 +96,29 @@ export default function AdminProfilePage() {
         </div>
 
         {/* SECURITY */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-white">Security</h2>
+        {admin?.role === "SUPER_ADMIN" && (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-white">Security</h2>
 
-          <div className="mt-4 flex items-center justify-between">
-            <div>
-              <div className="text-white font-medium">Change Password</div>
-              <div className="text-sm text-gray-400">
-                Update your account password. You will be logged out after
-                changing it.
+            <div className="mt-4 flex items-center justify-between">
+              <div>
+                <div className="text-white font-medium">Change Password</div>
+                <div className="text-sm text-gray-400">
+                  Update your account password. You will be logged out after
+                  changing it.
+                </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => setShowChangePassword(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-gray-700 hover:bg-gray-600 text-white transition"
-            >
-              <Lock size={16} />
-              Change Password
-            </button>
+              <button
+                onClick={() => setShowChangePassword(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-gray-700 hover:bg-gray-600 text-white transition"
+              >
+                <Lock size={16} />
+                Change Password
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       {showEditProfile && (
         <EditAdminProfileModal

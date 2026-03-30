@@ -1,6 +1,6 @@
 import { Router } from "express";
 import prisma from "../lib/prismaClient.js";
-import { withConn } from "../services/mikrotik.js";
+import { withConn } from "../services/mikrotik.js";import { requireAuth } from "../middleware/authMiddleware.js";
 
 const router = Router();
 
@@ -45,7 +45,8 @@ function profileNameFromRateLimit(rateLimit) {
  * Create PPP profile (package) in MikroTik
  * IMPROVED: Automatically copies Local/Remote IP settings from existing profiles.
  */
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
+  if (req.user.role !== "SUPER_ADMIN") return res.status(403).json({ success: false, error: "Forbidden" });
   const { displayName, volume, regularPrice, ispCost } = req.body || {};
 
   // 1️⃣ Normalize volume
@@ -297,7 +298,8 @@ router.get("/", async (req, res) => {
  * POST /api/packages/sync
  * One-time sync: MikroTik PPP profiles → DB packages
  */
-router.post("/sync", async (req, res) => {
+router.post("/sync", requireAuth, async (req, res) => {
+  if (req.user.role !== "SUPER_ADMIN") return res.status(403).json({ success: false, error: "Forbidden" });
   try {
     let totalProfiles = 0;
     let inserted = 0;
@@ -460,7 +462,8 @@ router.get("/:id", async (req, res) => {
  * PUT /api/packages/:id
  * Update ONLY safe fields: displayName, regularPrice, ispCost
  */
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAuth, async (req, res) => {
+  if (req.user.role !== "SUPER_ADMIN") return res.status(403).json({ success: false, error: "Forbidden" });
   try {
     const id = Number(req.params.id);
 

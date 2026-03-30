@@ -62,9 +62,11 @@ const ProfilePage = () => {
     area: "",
     package: "",
     packagePrice: "",
+    staffId: "",
   });
   const [photoFile, setPhotoFile] = useState(null);
   const [packages, setPackages] = useState([]);
+  const [staffs, setStaffs] = useState([]);
 
   useEffect(() => {
     if (!id) return;
@@ -242,6 +244,7 @@ const ProfilePage = () => {
       package: editForm.package || null,
       packagePrice: safePrice,
       dataLimitGB: editForm.dataLimitGB,
+      staffId: editForm.staffId ? Number(editForm.staffId) : undefined,
     };
 
     let profileUpdated = false;
@@ -268,9 +271,14 @@ const ProfilePage = () => {
       } else {
         setPackages([]);
       }
+
+      const staffRes = await api.get("/staff");
+      if (staffRes.data?.success) {
+        setStaffs(staffRes.data.staff || []);
+      }
     } catch (err) {
-      console.error("Failed to load packages:", err);
-      toast.error("Unable to load package list.");
+      console.error("Failed to load packages or staff:", err);
+      toast.error("Unable to load selection lists.");
     }
   }
 
@@ -303,13 +311,19 @@ const ProfilePage = () => {
       const res = await api.post(`/users/${profile.id}/renew`);
       if (res.data?.success) {
         toast.success("User renewed successfully!");
-        window.location.reload();
+        window.dispatchEvent(new Event("walletUpdated"));
+        setTimeout(() => window.location.reload(), 1500);
       } else {
         toast.error("Renew failed: " + res.data?.error);
       }
     } catch (err) {
       console.error(err);
-      toast.error("Server error during renewal.");
+      const errorMsg = err.response?.data?.error || "";
+      if (err.response?.status === 400 && errorMsg.includes("Insufficient")) {
+        toast.error("Insufficient wallet credits to activate this package.");
+      } else {
+        toast.error(errorMsg || "Server error during renewal.");
+      }
     }
   }
 
@@ -515,6 +529,7 @@ const ProfilePage = () => {
                       dataLimitGB: profile.dataLimit
                         ? (Number(profile.dataLimit) / 1073741824).toFixed(0)
                         : "",
+                      staffId: profile.staffId || "",
                     });
 
                     setPhotoFile(null);
@@ -934,6 +949,25 @@ const ProfilePage = () => {
                       {sortedPackages.map((p) => (
                         <option key={p.id} value={p.name}>
                           {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {/* SALESPERSON / ASSIGN TO */}
+                  <label className="block text-sm">
+                    Salesperson / Assign To
+                    <select
+                      className="w-full p-2 bg-gray-800 rounded mt-1"
+                      value={editForm.staffId}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, staffId: e.target.value })
+                      }
+                    >
+                      <option value="">-- Keep Current Assignee --</option>
+                      {staffs.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.username})
                         </option>
                       ))}
                     </select>

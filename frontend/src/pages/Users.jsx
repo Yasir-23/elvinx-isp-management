@@ -102,9 +102,15 @@ export default function AllUsers() {
       console.warn("Toggle warning (ignored):", err);
 
       // Show server error if available
-      toast.error(err.response?.data?.error || "Server error");
+      const errorMsg = err.response?.data?.error || "Server error";
+      if (err.response?.status === 400 && errorMsg.includes("Insufficient")) {
+        toast.error("Insufficient wallet credits to activate this package.");
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       // ✅ KEEP existing behavior
+      window.dispatchEvent(new Event("walletUpdated"));
       fetchUsers();
     }
   };

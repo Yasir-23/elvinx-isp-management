@@ -7,6 +7,8 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
   const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [packages, setPackages] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [loadingStaff, setLoadingStaff] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   
@@ -17,7 +19,7 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
     password: "",
     package: "",
     connectionType: "pppoe",
-    salesperson: "admin",
+    staffId: "",
     nas: "",
     nationalId: "",
     mobile: "",
@@ -46,6 +48,19 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
         setPackages([]);
       })
       .finally(() => setLoadingProfiles(false));
+
+    api
+      .get("/staff")
+      .then((res) => {
+        if (res.data?.success) {
+          setStaffList(res.data.staff || []);
+          if (res.data.staff?.length > 0 && !formData.staffId) {
+            setFormData(prev => ({ ...prev, staffId: res.data.staff[0].id }));
+          }
+        }
+      })
+      .catch((err) => console.error("Error fetching staff:", err))
+      .finally(() => setLoadingStaff(false));
   }, []);
 
   const handleChange = (e) => {
@@ -61,13 +76,16 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
     setSaving(true);
     setError(null);
 
+    const selectedStaff = staffList.find(s => String(s.id) === String(formData.staffId));
+
     const payload = {
       name: formData.name,
       username: formData.username,
       password: formData.password,
       package: formData.package,
       connection: formData.connectionType,
-      salesperson: formData.salesperson,
+      salesperson: selectedStaff ? selectedStaff.username : "admin",
+      staffId: formData.staffId ? Number(formData.staffId) : undefined,
       nas: formData.nas,
       nationalId: formData.nationalId,
       mobile: formData.mobile,
@@ -172,12 +190,20 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
           </select>
 
           <select
-            name="salesperson"
-            value={formData.salesperson}
+            name="staffId"
+            value={formData.staffId}
             onChange={handleChange}
             className="col-span-2 p-2 rounded bg-gray-800"
+            required
           >
-            <option value="admin">Admin</option>
+            <option value="">
+              {loadingStaff ? "Loading staff..." : "Select Assigned Staff"}
+            </option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.role}){s.parent?.username ? ` (under ${s.parent.username})` : ""}
+              </option>
+            ))}
           </select>
 
           <input

@@ -28,17 +28,31 @@ export default function Sidebar({ open = true }) {
   const { settings } = useSettings();
   const navigate = useNavigate();
 
+  const token = localStorage.getItem("token");
+  let userRole = "";
+  try {
+    if (token) {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userRole = payload.role;
+    }
+  } catch (e) {
+    console.error("JWT parse error in Sidebar:", e);
+  }
+
   const nav = [
     { to: "/", label: "Home", icon: Home },
     { to: "/admin", label: "Profile", icon: UserCog },
-    { to: "/network", label: "Network", icon: Radio },
+    ...(userRole === "SUPER_ADMIN" ? [{ to: "/network", label: "Network", icon: Radio }] : []),
+    { to: "/staff", label: "Staff", icon: UserCog },
     { to: "/users/add", label: "Add User", icon: UserPlus },
     { to: "/users", label: "All Users", icon: Users },
-    { to: "/addpackage", label: "Add Package", icon: PackagePlus },
-    { to: "/allpackages", label: "All Packages", icon: Package },
+    ...(["SUPER_ADMIN", "FRANCHISE"].includes(userRole) ? [
+      { to: "/addpackage", label: "Add Package", icon: PackagePlus },
+      { to: "/allpackages", label: "All Packages", icon: Package },
+    ] : []),
     { to: "/addinvoices", label: "Add Bill/Invoice", icon: FilePlus2 },
     { to: "/browsebills", label: "Browse Bills", icon: FolderOpen },
-    { to: "/settings", label: "Settings", icon: Settings },
+    ...(userRole === "SUPER_ADMIN" ? [{ to: "/settings", label: "Settings", icon: Settings }] : []),
     { to: "/logout", label: "Logout", icon: LogOut },
   ];
 
@@ -51,9 +65,8 @@ export default function Sidebar({ open = true }) {
 
   return (
     <aside
-      className={`flex-shrink-0 ${
-        open ? "w-64" : "w-16"
-      } bg-gray-900 text-gray-200 h-screen transition-all duration-200 overflow-y-auto`}
+      className={`flex-shrink-0 ${open ? "w-64" : "w-16"
+        } bg-gray-900 text-gray-200 h-screen transition-all duration-200 overflow-y-auto`}
     >
       <div className="p-4">
         <Link to="/">
@@ -75,9 +88,8 @@ export default function Sidebar({ open = true }) {
                 {/* Parent menu */}
                 <button
                   onClick={() => setUsersOpen(!usersOpen)}
-                  className={`flex items-center w-full ${
-                    open ? "gap-3 px-3 justify-start" : "justify-center px-0"
-                  } py-2 rounded-md hover:bg-gray-800 transition`}
+                  className={`flex items-center w-full ${open ? "gap-3 px-3 justify-start" : "justify-center px-0"
+                    } py-2 rounded-md hover:bg-gray-800 transition`}
                 >
                   <n.icon size={18} className="w-6 text-center" />
                   {open && (
@@ -95,8 +107,7 @@ export default function Sidebar({ open = true }) {
                         to={c.to}
                         end
                         className={({ isActive }) =>
-                          `block px-3 py-1.5 rounded-md text-sm hover:bg-gray-800 transition ${
-                            isActive ? "bg-white/5" : ""
+                          `block px-3 py-1.5 rounded-md text-sm hover:bg-gray-800 transition ${isActive ? "bg-white/5" : ""
                           }`
                         }
                       >
@@ -114,9 +125,8 @@ export default function Sidebar({ open = true }) {
                   localStorage.removeItem("token");
                   navigate("/login");
                 }}
-                className={`flex items-center w-full ${
-                  open ? "gap-3 px-3 justify-start" : "justify-center px-0"
-                } py-2 rounded-md hover:bg-gray-800 transition text-left`}
+                className={`flex items-center w-full ${open ? "gap-3 px-3 justify-start" : "justify-center px-0"
+                  } py-2 rounded-md hover:bg-gray-800 transition text-left`}
               >
                 <n.icon size={18} className="w-6 flex-shrink-0" />
                 {open && <span className="text-sm">{n.label}</span>}
@@ -128,10 +138,8 @@ export default function Sidebar({ open = true }) {
                 to={n.to}
                 end
                 className={({ isActive }) =>
-                  `flex items-center ${
-                    open ? "gap-3 px-3 justify-start" : "justify-center px-0"
-                  } py-2 rounded-md hover:bg-gray-800 transition ${
-                    isActive ? "bg-white/5" : ""
+                  `flex items-center ${open ? "gap-3 px-3 justify-start" : "justify-center px-0"
+                  } py-2 rounded-md hover:bg-gray-800 transition ${isActive ? "bg-white/5" : ""
                   }`
                 }
               >

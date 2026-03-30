@@ -1,6 +1,6 @@
 import express from "express";
 import { withConn } from "../services/mikrotik.js";
-import prisma from "../lib/prismaClient.js";
+import prisma from "../lib/prismaClient.js";import { requireAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -162,7 +162,8 @@ router.get("/monitor", async (req, res) => {
 
 
 // TEMP: Raw MikroTik command executor for debugging
-router.post("/raw", async (req, res) => {
+router.post("/raw", requireAuth, async (req, res) => {
+  if (req.user.role !== "SUPER_ADMIN") return res.status(403).json({ success: false, error: "Forbidden" });
   try {
     const { cmd } = req.body;
     if (!cmd) return res.json({ success: false, error: "cmd required" });
@@ -255,7 +256,8 @@ router.get("/auto-config", async (req, res) => {
 // POST /api/network/reboot
 // REBOOT MIKROTIK ROUTER
 // ===================
-router.post("/reboot", async (req, res) => {
+router.post("/reboot", requireAuth, async (req, res) => {
+  if (req.user.role !== "SUPER_ADMIN") return res.status(403).json({ success: false, error: "Forbidden" });
   try {
     await withConn(async (conn) => {
       // Execute reboot. This often causes an immediate socket disconnect error.

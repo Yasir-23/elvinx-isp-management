@@ -2,6 +2,8 @@ import { Router } from "express";
 import prisma from "../lib/prismaClient.js";
 import { withConn } from "../services/mikrotik.js";
 import { deleteMikrotikUser } from "../services/mikrotik.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
+import { hierarchyScope } from "../middleware/hierarchyScope.js";
 
 const router = Router();
 
@@ -16,25 +18,40 @@ function sanitizeBigInt(obj) {
 
 /**
  * POST /api/users
- * - Create DB user (Expired by default)
+ * - Check wallet vs ispCost (skip if SUPER_ADMIN)
+ * - Create DB user (Expired by default) in $transaction
  * - Add to MikroTik (Disabled by default)
  */
-router.post("/users", async (req, res) => {
+router.post("/users", requireAuth, hierarchyScope, async (req, res) => {
   const data = req.body || {};
+  const creatorId = req.user?.id;
+  const creatorRole = req.user?.role;
 
-  // 1️⃣ LOGIC FIX: Calculate Expiry BEFORE creating the user
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  // Enforce these values
-  data.disabled = true;
-  data.expiryDate = yesterday;
+  if (!creatorId) return res.status(401).json({ success: false, error: "Unauthorized" });
 
   try {
-    // 2️⃣ Now create the user with the correct "Expired" data
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Enforce default state and ownership
+    data.disabled = true;
+    data.expiryDate = yesterday;
+
+    // Validate dynamic staffId assignment
+    let targetStaffId = creatorId;
+    if (data.staffId) {
+      const reqStaffId = Number(data.staffId);
+      if (req.scopedStaffIds === null || req.scopedStaffIds.includes(reqStaffId)) {
+        targetStaffId = reqStaffId;
+      }
+    }
+    
+    data.staffId = targetStaffId; 
+
+    // Create user for free
     const user = await prisma.user.create({ data });
 
-    // 3️⃣ Create in MikroTik (Force Disabled)
+    // 4️⃣ Create in MikroTik (Force Disabled)
     try {
       await withConn(async (conn) => {
         await conn.write("/ppp/secret/add", [
@@ -75,7 +92,7 @@ router.post("/users", async (req, res) => {
  *  - search (matches username, name, mobile, email, salesperson)
  *  - online (optional: "all" | "online" | "offline")
  */
-router.get("/users", async (req, res) => {
+router.get("/users", requireAuth, hierarchyScope, async (req, res) => {
   try {
     const {
       page = 1,
@@ -107,6 +124,10 @@ router.get("/users", async (req, res) => {
 
     // ---------- DB FILTER (search etc.) ----------
     const where = {};
+
+    if (req.scopedStaffIds !== null) {
+      where.staffId = { in: req.scopedStaffIds };
+    }
 
     if (search && search.trim() !== "") {
       const s = search.trim();
@@ -200,11 +221,17 @@ router.get("/users", async (req, res) => {
 /**
  * POST /api/users/:id/disable  and /enable
  */
-router.post("/users/:id/disable", async (req, res) => {
+router.post("/users/:id/disable", requireAuth, hierarchyScope, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ success: false, error: "Invalid id" });
 
   try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: "Not found" });
+    if (req.scopedStaffIds !== null && !req.scopedStaffIds.includes(existing.staffId)) {
+       return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: { disabled: true },
@@ -254,10 +281,16 @@ router.post("/users/:id/disable", async (req, res) => {
   }
 });
 
-router.post("/users/:id/enable", async (req, res) => {
+router.post("/users/:id/enable", requireAuth, hierarchyScope, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ success: false, error: "Invalid id" });
   try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: "Not found" });
+    if (req.scopedStaffIds !== null && !req.scopedStaffIds.includes(existing.staffId)) {
+       return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: { disabled: false },
@@ -286,13 +319,37 @@ router.post("/users/:id/enable", async (req, res) => {
 });
 
 // UPDATE USER (PUT /api/users/:id)
-router.put("/users/:id", async (req, res) => {
+router.put("/users/:id", requireAuth, hierarchyScope, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id)
       return res.status(400).json({ success: false, error: "Invalid ID" });
 
+    // 1️⃣ Verify Target User Ownership
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+    if (!existingUser) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    if (req.scopedStaffIds !== null && !req.scopedStaffIds.includes(existingUser.staffId)) {
+      return res.status(403).json({ success: false, error: "You do not have permission to edit this user." });
+    }
+
     const data = req.body;
+
+    // 2️⃣ Verify Reassignment (if staffId is changing)
+    if (data.staffId && data.staffId !== existingUser.staffId) {
+      const newStaffId = Number(data.staffId);
+      if (req.scopedStaffIds !== null && !req.scopedStaffIds.includes(newStaffId)) {
+         return res.status(403).json({ success: false, error: "You cannot assign a user to this staff member." });
+      }
+      data.staffId = newStaffId;
+      
+      const assignedStaff = await prisma.staff.findUnique({ where: { id: newStaffId } });
+      if (assignedStaff) {
+         data.salesperson = assignedStaff.username;
+      }
+    }
 
     // Convert "dataLimitGB" from frontend to Bytes for DB
     if (data.dataLimitGB !== undefined) {
@@ -350,7 +407,7 @@ router.put("/users/:id", async (req, res) => {
 });
 
 // DELETE /api/users/:id
-router.delete("/users/:id", async (req, res) => {
+router.delete("/users/:id", requireAuth, hierarchyScope, async (req, res) => {
   console.log("DELETE USER HIT:", req.params.id);
 
   try {
@@ -361,6 +418,10 @@ router.delete("/users/:id", async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user)
       return res.status(404).json({ success: false, error: "User not found" });
+
+    if (req.scopedStaffIds !== null && !req.scopedStaffIds.includes(user.staffId)) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
 
     // ===============================
     // 1) Kill active PPP session FIRST
@@ -438,21 +499,61 @@ router.delete("/users/:id", async (req, res) => {
  * - WAITS until the session is confirmed gone (Fixes Ghost Data).
  * - Resets DB to 0.
  */
-router.post("/users/:id/renew", async (req, res) => {
+router.post("/users/:id/renew", requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id)
-      return res.status(400).json({ success: false, error: "Invalid ID" });
+    const creatorId = req.user?.id;
+    const creatorRole = req.user?.role;
+
+    if (!creatorId) return res.status(401).json({ success: false, error: "Unauthorized" });
+    if (!id) return res.status(400).json({ success: false, error: "Invalid ID" });
 
     const user = await prisma.user.findUnique({ where: { id } });
-    if (!user)
-      return res.status(404).json({ success: false, error: "User not found" });
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+
+    // Fetch Package for ispCost
+    let ispCost = 0;
+    if (user.package) {
+      const pkg = await prisma.package.findUnique({ where: { name: user.package } });
+      if (pkg) ispCost = pkg.ispCost;
+    }
 
     // 🕒 CALCULATE NEW EXPIRY (Now + 30 Days)
     const newExpiryDate = new Date();
     newExpiryDate.setDate(newExpiryDate.getDate() + 30);
 
-    // 1️⃣ ENABLE & KILL (The Terminator Logic)
+    // 1️⃣ Enforce wallet constraint in $transaction & Update User
+    let updated;
+    try {
+      if (creatorRole === "SUPER_ADMIN" || ispCost === 0) {
+        updated = await prisma.user.update({
+          where: { id },
+          data: { usedBytesTotal: 0, lastBytesSnapshot: 0, disabled: false, expiryDate: newExpiryDate },
+        });
+      } else {
+        updated = await prisma.$transaction(async (tx) => {
+          const staff = await tx.staff.findUnique({ where: { id: creatorId } });
+          if (staff.walletBalance < ispCost) {
+            throw new Error("INSUFFICIENT_BALANCE");
+          }
+          await tx.staff.update({
+            where: { id: creatorId },
+            data: { walletBalance: { decrement: ispCost } }
+          });
+          return await tx.user.update({
+            where: { id },
+            data: { usedBytesTotal: 0, lastBytesSnapshot: 0, disabled: false, expiryDate: newExpiryDate },
+          });
+        });
+      }
+    } catch (txErr) {
+      if (txErr.message === "INSUFFICIENT_BALANCE") {
+        return res.status(400).json({ success: false, error: "Insufficient wallet balance to renew this user." });
+      }
+      throw txErr;
+    }
+
+    // 2️⃣ ENABLE & KILL (The Terminator Logic)
     try {
       await withConn(async (conn) => {
         // Enable Secret
@@ -491,17 +592,8 @@ router.post("/users/:id/renew", async (req, res) => {
       console.warn("Renew: MikroTik Warning:", mtErr.message);
     }
 
-    // 3️⃣ RESET DATABASE TO 0 + set expiry (Safe now because session is gone)
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        usedBytesTotal: 0,
-        lastBytesSnapshot: 0,
-        disabled: false,
-        expiryDate: newExpiryDate,
-      },
-    });
-
+    // 3️⃣ Database update is already handled in transaction. 
+    
     res.json({
       success: true,
       message: "User renewed for 30 days. Session reset confirmed.",
