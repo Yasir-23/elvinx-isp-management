@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
 
 const AddUserModal = ({ onClose, onUserAdded }) => {
-  const [profiles, setProfiles] = useState([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [packages, setPackages] = useState([]);
   const [staffList, setStaffList] = useState([]);
@@ -35,7 +33,7 @@ const AddUserModal = ({ onClose, onUserAdded }) => {
   // ==========================
   useEffect(() => {
     api
-      .get("/packages", { params: {limit: 1000},}) // ✅ baseURL + token included
+      .get("/packages/available")
       .then((res) => {
         if (res.data.success) {
           setPackages(res.data.data || []);

@@ -1,8 +1,19 @@
 import { Router } from "express";
 import prisma from "../lib/prismaClient.js";
 import { withConn } from "../services/mikrotik.js";import { requireAuth } from "../middleware/authMiddleware.js";
+import { buildAvailablePackagesWhere } from "../lib/staffPackageAccess.js";
 
 const router = Router();
+
+function parseBooleanFlag(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off"].includes(normalized)) return false;
+  }
+  return undefined;
+}
 
 /**
  * Normalize package volume into MikroTik rate-limit format
@@ -151,6 +162,7 @@ router.post("/", requireAuth, async (req, res) => {
  *  - sort (id, displayName, name, regularPrice, createdAt)
  *  - order (asc | desc)
  *  - search (matches displayName, name)
+ *  - sellableOnly=true (creation flows only)
  *
  * NOTE: No usersCount / activeCount yet (we add later as final step)
  */
@@ -162,16 +174,19 @@ router.get("/", async (req, res) => {
       sort = "id",
       order = "desc",
       search = "",
+      sellableOnly,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+    const filterSellableOnly = parseBooleanFlag(sellableOnly) === true;
 
     // Whitelist sortable columns (IMPORTANT)
     const sortableFields = [
       "id",
       "displayName",
       "name",
+      "sellable",
       "regularPrice",
       "createdAt",
     ];
@@ -180,6 +195,10 @@ router.get("/", async (req, res) => {
 
     // Search filter
     const where = {};
+    if (filterSellableOnly) {
+      where.sellable = true;
+    }
+
     if (search && search.trim() !== "") {
       const s = search.trim();
       where.OR = [
@@ -199,6 +218,7 @@ router.get("/", async (req, res) => {
           id: true,
           displayName: true,
           name: true, // volume
+          sellable: true,
           regularPrice: true,
           createdAt: true,
         },
@@ -272,6 +292,7 @@ router.get("/", async (req, res) => {
       id: p.id,
       displayName: p.displayName,
       name: p.name,
+      sellable: p.sellable,
       regularPrice: p.regularPrice == null ? null : Number(p.regularPrice),
       createdAt: p.createdAt,
       usersCount: usersCountMap[p.name] || 0,
@@ -290,6 +311,62 @@ router.get("/", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "Failed to fetch packages",
+    });
+  }
+});
+
+/**
+ * GET /api/packages/available
+ * Packages available to the currently logged-in staff member.
+ * - SUPER_ADMIN: all sellable packages
+ * - Other roles: sellable packages explicitly assigned to req.user.id
+ */
+router.get("/available", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
+
+    const rows = await prisma.package.findMany({
+      where: buildAvailablePackagesWhere(req.user),
+      orderBy: [{ regularPrice: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        displayName: true,
+        name: true,
+        sellable: true,
+        regularPrice: true,
+        ispCost: true,
+        rateLimit: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: rows.map((pkg) => ({
+        id: pkg.id,
+        displayName: pkg.displayName,
+        name: pkg.name,
+        sellable: pkg.sellable,
+        regularPrice:
+          pkg.regularPrice == null ? null : Number(pkg.regularPrice),
+        ispCost: pkg.ispCost == null ? null : Number(pkg.ispCost),
+        rateLimit: pkg.rateLimit,
+        createdAt: pkg.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error("GET /api/packages/available error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch available packages",
     });
   }
 });
@@ -441,6 +518,7 @@ router.get("/:id", async (req, res) => {
         id: pkg.id,
         displayName: pkg.displayName,
         name: pkg.name,
+        sellable: pkg.sellable,
         rateLimit: pkg.rateLimit,
         regularPrice: pkg.regularPrice,
         ispCost: pkg.ispCost,
@@ -544,6 +622,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         id: true,
         displayName: true,
         name: true,
+        sellable: true,
         rateLimit: true,
         regularPrice: true,
         ispCost: true,
@@ -560,6 +639,68 @@ router.put("/:id", requireAuth, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "Failed to update package",
+    });
+  }
+});
+
+/**
+ * PATCH /api/packages/:id/sellable
+ * Toggle sellable visibility only. No MikroTik interaction.
+ */
+router.patch("/:id/sellable", requireAuth, async (req, res) => {
+  if (req.user.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ success: false, error: "Forbidden" });
+  }
+
+  try {
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid package id",
+      });
+    }
+
+    const sellable = parseBooleanFlag(req.body?.sellable);
+    if (sellable === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: "sellable must be true or false",
+      });
+    }
+
+    const updated = await prisma.package.update({
+      where: { id },
+      data: { sellable },
+      select: {
+        id: true,
+        displayName: true,
+        name: true,
+        sellable: true,
+        rateLimit: true,
+        regularPrice: true,
+        ispCost: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      package: updated,
+    });
+  } catch (err) {
+    console.error("PATCH /api/packages/:id/sellable error:", err);
+
+    if (err.code === "P2025") {
+      return res.status(404).json({
+        success: false,
+        error: "Package not found",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: "Failed to update package visibility",
     });
   }
 });

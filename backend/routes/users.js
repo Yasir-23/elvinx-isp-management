@@ -4,6 +4,7 @@ import { withConn } from "../services/mikrotik.js";
 import { deleteMikrotikUser } from "../services/mikrotik.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import { hierarchyScope } from "../middleware/hierarchyScope.js";
+import { buildAvailablePackagesWhere } from "../lib/staffPackageAccess.js";
 
 const router = Router();
 
@@ -25,7 +26,6 @@ function sanitizeBigInt(obj) {
 router.post("/users", requireAuth, hierarchyScope, async (req, res) => {
   const data = req.body || {};
   const creatorId = req.user?.id;
-  const creatorRole = req.user?.role;
 
   if (!creatorId) return res.status(401).json({ success: false, error: "Unauthorized" });
 
@@ -47,6 +47,26 @@ router.post("/users", requireAuth, hierarchyScope, async (req, res) => {
     }
     
     data.staffId = targetStaffId; 
+
+    if (data.package) {
+      const allowedPackage = await prisma.package.findFirst({
+        where: {
+          ...buildAvailablePackagesWhere(req.user),
+          name: data.package,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      if (!allowedPackage) {
+        return res.status(403).json({
+          success: false,
+          error: "Selected package is not available in your allowed package set.",
+        });
+      }
+    }
 
     // Create user for free
     const user = await prisma.user.create({ data });

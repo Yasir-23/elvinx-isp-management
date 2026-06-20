@@ -132,6 +132,7 @@ model Staff {
 
   // PPPoE user relation
   users User[]
+  packageAssignments StaffPackageAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -146,9 +147,23 @@ model Package {
   rateLimit    String   @unique
   regularPrice Int      @default(0)
   ispCost      Int      @default(0)
+  sellable     Boolean  @default(true)
   createdAt    DateTime @default(now())
+  staffAssignments StaffPackageAssignment[]
 
   @@map("package")
+}
+
+model StaffPackageAssignment {
+  staffId    Int
+  packageId  Int
+  createdAt  DateTime @default(now())
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  package    Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, packageId])
+  @@index([packageId])
+  @@map("staff_package_assignment")
 }
 
 model Invoice {

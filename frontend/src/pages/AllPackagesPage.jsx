@@ -13,6 +13,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 export default function AllPackages() {
   const [packages, setPackages] = useState([]);
@@ -24,16 +25,24 @@ export default function AllPackages() {
   const [sort, setSort] = useState("id");
   const [order, setOrder] = useState("desc");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [togglingPackageId, setTogglingPackageId] = useState(null);
   const navigate = useNavigate();
 
-  // ----------------------------
-  // TEMP fetch (UI skeleton only)
-  // ----------------------------
+  const token = localStorage.getItem("token");
+  let userRole = "";
+  try {
+    if (token) {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      userRole = payload.role || "";
+    }
+  } catch (err) {
+    console.error("JWT parse error in AllPackagesPage:", err);
+  }
+
   const fetchPackages = async () => {
     try {
       setLoading(true);
 
-      // ⚠️ Temporary – backend will be wired later
       const res = await api.get("/packages", {
         params: { page, limit, search, sort, order },
       });
@@ -43,7 +52,8 @@ export default function AllPackages() {
         setTotal(res.data.total || 0);
       }
     } catch (err) {
-      console.warn("Packages fetch skipped (UI skeleton)");
+      console.error("Failed to fetch packages:", err);
+      toast.error("Failed to load packages");
     } finally {
       setLoading(false);
     }
@@ -53,9 +63,6 @@ export default function AllPackages() {
     fetchPackages();
   }, [page, limit, search, sort, order]);
 
-  // ----------------------------
-  // Sorting (UI only)
-  // ----------------------------
   const handleSort = (field) => {
     if (sort === field) {
       setOrder((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -65,23 +72,55 @@ export default function AllPackages() {
     }
   };
 
-  // ----------------------------
-  // Pagination helpers
-  // ----------------------------
+  const handleToggleSellable = async (pkg) => {
+    if (userRole !== "SUPER_ADMIN") return;
+
+    try {
+      setTogglingPackageId(pkg.id);
+
+      const res = await api.patch(`/packages/${pkg.id}/sellable`, {
+        sellable: !pkg.sellable,
+      });
+
+      if (res.data?.success) {
+        toast.success(
+          `${pkg.displayName || pkg.name} is now ${
+            !pkg.sellable ? "sellable" : "hidden"
+          }`
+        );
+        await fetchPackages();
+      } else {
+        toast.error(res.data?.error || "Failed to update package visibility");
+      }
+    } catch (err) {
+      console.error("Failed to toggle package visibility:", err);
+      toast.error(
+        err.response?.data?.error || "Failed to update package visibility"
+      );
+    } finally {
+      setTogglingPackageId(null);
+    }
+  };
+
   const start = total === 0 ? 0 : (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
   const totalPages = Math.ceil(total / limit);
 
-  // ----------------------------
-  // COPY (current page only)
-  // ----------------------------
   const cleanCell = (val) => {
     if (val === null || val === undefined) return "";
     return String(val).replace(/\s+/g, " ").trim();
   };
 
   const buildCopyTSV = () => {
-    const headers = ["#", "Name", "Volume", "Users", "Active", "Regular Price"];
+    const headers = [
+      "#",
+      "Name",
+      "Volume",
+      "Visibility",
+      "Users",
+      "Active",
+      "Regular Price",
+    ];
     const lines = [headers.join("\t")];
 
     packages.forEach((pkg, index) => {
@@ -89,8 +128,9 @@ export default function AllPackages() {
         start + index,
         pkg.displayName || "-",
         pkg.name || "-",
-        pkg.usersCount || "", // users (later)
-        pkg.activeCount || "", // active (later)
+        pkg.sellable ? "Sellable" : "Hidden",
+        pkg.usersCount || "",
+        pkg.activeCount || "",
         pkg.regularPrice ?? "-",
       ].map(cleanCell);
 
@@ -130,15 +170,16 @@ export default function AllPackages() {
     });
 
     const headers = [
-      ["#", "Name", "Volume", "Users", "Active", "Regular Price"],
+      ["#", "Name", "Volume", "Visibility", "Users", "Active", "Regular Price"],
     ];
 
     const body = packages.map((pkg, index) => [
       start + index,
       pkg.displayName || "",
       pkg.name || "",
-      pkg.usersCount || "", // Users (later)
-      pkg.activeCount || "", // Active (later)
+      pkg.sellable ? "Sellable" : "Hidden",
+      pkg.usersCount || "",
+      pkg.activeCount || "",
       pkg.regularPrice ?? "",
     ]);
 
@@ -148,7 +189,7 @@ export default function AllPackages() {
     autoTable(doc, {
       startY: 60,
       head: headers,
-      body: body,
+      body,
       styles: {
         fontSize: 9,
         cellPadding: 6,
@@ -163,23 +204,28 @@ export default function AllPackages() {
       margin: { left: 40, right: 40 },
     });
 
-    // 👇 THIS IS THE KEY PART
     const pdfBlob = doc.output("bloburl");
     window.open(pdfBlob, "_blank");
   };
 
-  // ----------------------------
-  // EXPORTS (UI skeleton)
-  // ----------------------------
   const downloadCSV = () => {
-    const headers = ["#", "Name", "Volume", "Users", "Active", "Regular Price"];
+    const headers = [
+      "#",
+      "Name",
+      "Volume",
+      "Visibility",
+      "Users",
+      "Active",
+      "Regular Price",
+    ];
 
     const rows = packages.map((pkg, index) => [
       start + index,
       pkg.displayName || "",
       pkg.name || "",
-      pkg.usersCount || "", // Users (later)
-      pkg.activeCount || "", // Active (later)
+      pkg.sellable ? "Sellable" : "Hidden",
+      pkg.usersCount || "",
+      pkg.activeCount || "",
       pkg.regularPrice ?? "",
     ]);
 
@@ -207,13 +253,22 @@ export default function AllPackages() {
       "#": start + index,
       Name: pkg.displayName || "",
       Volume: pkg.name || "",
-      Users: pkg.usersCount || "", // later
-      Active: pkg.activeCount || "", // later
+      Visibility: pkg.sellable ? "Sellable" : "Hidden",
+      Users: pkg.usersCount || "",
+      Active: pkg.activeCount || "",
       "Regular Price": pkg.regularPrice ?? "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data, {
-      header: ["#", "Name", "Volume", "Users", "Active", "Regular Price"],
+      header: [
+        "#",
+        "Name",
+        "Volume",
+        "Visibility",
+        "Users",
+        "Active",
+        "Regular Price",
+      ],
     });
 
     const workbook = XLSX.utils.book_new();
@@ -230,15 +285,16 @@ export default function AllPackages() {
     });
 
     const headers = [
-      ["#", "Name", "Volume", "Users", "Active", "Regular Price"],
+      ["#", "Name", "Volume", "Visibility", "Users", "Active", "Regular Price"],
     ];
 
     const body = packages.map((pkg, index) => [
       start + index,
       pkg.displayName || "",
       pkg.name || "",
-      pkg.usersCount || "", // Users (later)
-      pkg.activeCount || "", // Active (later)
+      pkg.sellable ? "Sellable" : "Hidden",
+      pkg.usersCount || "",
+      pkg.activeCount || "",
       pkg.regularPrice ?? "",
     ]);
 
@@ -248,7 +304,7 @@ export default function AllPackages() {
     autoTable(doc, {
       startY: 60,
       head: headers,
-      body: body,
+      body,
       styles: {
         fontSize: 9,
         cellPadding: 6,
@@ -266,18 +322,20 @@ export default function AllPackages() {
     doc.save(`packages_page_${page}.pdf`);
   };
 
+  const visibilityBadgeClass = (sellable) =>
+    sellable
+      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+      : "bg-amber-500/10 text-amber-400 border border-amber-500/30";
+
   return (
     <div className="p-4 space-y-4">
-      {/* Page Header */}
       <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 screen-only">
         <Package className="text-sky-400" size={20} />
         <h1 className="text-lg font-semibold text-white">All Packages</h1>
       </div>
 
-      {/* Controls */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 screen-only">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Left */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-gray-300">
               <span>Show</span>
@@ -330,7 +388,6 @@ export default function AllPackages() {
             </div>
           </div>
 
-          {/* Right */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-300">Search:</span>
             <input
@@ -346,7 +403,6 @@ export default function AllPackages() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-900 text-gray-300">
@@ -369,6 +425,14 @@ export default function AllPackages() {
                 {sort === "name" && (order === "asc" ? " ▲" : " ▼")}
               </th>
 
+              <th
+                className="px-4 py-3 cursor-pointer text-left"
+                onClick={() => handleSort("sellable")}
+              >
+                Visibility
+                {sort === "sellable" && (order === "asc" ? " ▲" : " ▼")}
+              </th>
+
               <th className="px-4 py-3 text-left">Users</th>
 
               <th className="px-4 py-3 text-left">Active</th>
@@ -388,13 +452,13 @@ export default function AllPackages() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
                   Loading packages...
                 </td>
               </tr>
             ) : packages.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
                   No packages found
                 </td>
               </tr>
@@ -404,6 +468,15 @@ export default function AllPackages() {
                   <td className="px-4 py-2">{start + index}</td>
                   <td className="px-4 py-2">{pkg.displayName || "-"}</td>
                   <td className="px-4 py-2">{pkg.name || "-"}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${visibilityBadgeClass(
+                        pkg.sellable
+                      )}`}
+                    >
+                      {pkg.sellable ? "Sellable" : "Hidden"}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">{pkg.usersCount || "0"}</td>
                   <td className="px-4 py-2">
                     <span
@@ -418,12 +491,33 @@ export default function AllPackages() {
                   </td>
                   <td className="px-4 py-2">{pkg.regularPrice ?? "-"}</td>
                   <td className="px-4 py-2 text-center screen-only">
-                    <button
-                    onClick={() => navigate(`/packages/${pkg.id}`)}
-                    className="p-2 rounded hover:bg-gray-700 text-blue-400">
-                      
-                      <Pencil size={16} />
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => navigate(`/packages/${pkg.id}`)}
+                        className="p-2 rounded hover:bg-gray-700 text-blue-400"
+                        title="Edit package"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      {userRole === "SUPER_ADMIN" && (
+                        <button
+                          onClick={() => handleToggleSellable(pkg)}
+                          disabled={togglingPackageId === pkg.id}
+                          className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+                            pkg.sellable
+                              ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
+                              : "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                          } disabled:opacity-60`}
+                        >
+                          {togglingPackageId === pkg.id
+                            ? "Saving..."
+                            : pkg.sellable
+                            ? "Hide"
+                            : "Make Sellable"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -431,7 +525,6 @@ export default function AllPackages() {
           </tbody>
         </table>
 
-        {/* Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm text-gray-400 screen-only px-4 pb-4">
           <div>
             Showing <span className="text-white">{start}</span> to{" "}
@@ -463,7 +556,7 @@ export default function AllPackages() {
 
       {copySuccess && (
         <div className="fixed bottom-5 right-5 z-50 px-4 py-2 rounded-md bg-green-600 text-white text-sm shadow-lg">
-          ✅ Copied to clipboard
+          Copied to clipboard
         </div>
       )}
     </div>
