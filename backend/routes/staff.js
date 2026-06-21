@@ -9,8 +9,8 @@ import { validateGrantablePackageIds } from "../lib/staffPackageAccess.js";
 const router = Router();
 
 function getAllowedChildRoles(role) {
-  if (role === "SUPER_ADMIN") return ["FRANCHISE", "DEALER", "SUB_DEALER"];
-  if (role === "FRANCHISE") return ["DEALER", "SUB_DEALER"];
+  if (role === "SUPER_ADMIN") return ["FRANCHISE"];
+  if (role === "FRANCHISE") return ["DEALER"];
   if (role === "DEALER") return ["SUB_DEALER"];
   return [];
 }

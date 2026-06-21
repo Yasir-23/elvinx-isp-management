@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
 
+function getCreatableRole(role) {
+  if (role === "SUPER_ADMIN") return "FRANCHISE";
+  if (role === "FRANCHISE") return "DEALER";
+  if (role === "DEALER") return "SUB_DEALER";
+  return null;
+}
+
 const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
   const isEditMode = Boolean(staffToEdit);
   const [saving, setSaving] = useState(false);
@@ -50,14 +57,7 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
       .finally(() => setLoadingPackages(false));
   }, []);
 
-  const getAvailableRoles = () => {
-    if (userRole === "SUPER_ADMIN") return ["FRANCHISE", "DEALER", "SUB_DEALER"];
-    if (userRole === "FRANCHISE") return ["DEALER", "SUB_DEALER"];
-    if (userRole === "DEALER") return ["SUB_DEALER"];
-    return [];
-  };
-
-  const availableRoles = useMemo(() => getAvailableRoles(), [userRole]);
+  const creatableRole = useMemo(() => getCreatableRole(userRole), [userRole]);
 
   useEffect(() => {
     if (isEditMode && staffToEdit) {
@@ -75,8 +75,8 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
 
   useEffect(() => {
     if (!isEditMode) {
-      if (availableRoles.length > 0 && !availableRoles.includes(formData.role)) {
-        setFormData((prev) => ({ ...prev, role: availableRoles[0] }));
+      if (creatableRole && formData.role !== creatableRole) {
+        setFormData((prev) => ({ ...prev, role: creatableRole }));
       }
       return;
     }
@@ -91,7 +91,7 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
     setSelectedPackageIds(
       currentPackageIds.filter((packageId) => availableIds.has(packageId))
     );
-  }, [availablePackages, availableRoles, formData.role, isEditMode, staffToEdit]);
+  }, [availablePackages, creatableRole, formData.role, isEditMode, staffToEdit]);
 
   const availablePackageIds = useMemo(
     () => new Set(availablePackages.map((pkg) => pkg.id)),
@@ -156,8 +156,14 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
         return;
       }
 
+      if (!creatableRole) {
+        setError("Your role is not permitted to create new staff members.");
+        return;
+      }
+
       const res = await api.post("/staff", {
         ...formData,
+        role: creatableRole,
         packageIds: selectedPackageIds.map(Number),
       });
 
@@ -176,8 +182,8 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
     }
   };
 
-  const canCreateStaff = availableRoles.length > 0;
-  const showCreateWarning = !isEditMode && userRole && availableRoles.length === 0;
+  const canCreateStaff = Boolean(creatableRole);
+  const showCreateWarning = !isEditMode && userRole && !creatableRole;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -192,13 +198,6 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
         </div>
 
         {error && <div className="mb-3 text-sm text-red-400">{error}</div>}
-
-        {showCreateWarning && (
-          <div className="mb-3 text-sm text-yellow-500">
-            Your role ({userRole.replace("_", " ")}) is not permitted to create
-            new staff members.
-          </div>
-        )}
 
         {isEditMode && staffToEdit && (
           <div className="mb-4 rounded border border-gray-700 bg-gray-800/70 p-3 text-sm text-gray-300">
@@ -224,6 +223,11 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
           </div>
         )}
 
+        {!isEditMode && showCreateWarning ? (
+          <div className="rounded border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-300">
+            Your role ({userRole.replace("_", " ")}) cannot create staff members.
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
           <input
             name="name"
@@ -283,23 +287,17 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
             disabled={isEditMode || !canCreateStaff}
           />
 
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="col-span-2 p-2 rounded bg-gray-800"
-            required
-            disabled={isEditMode || !canCreateStaff}
-          >
-            <option value="" disabled>
-              Select Role
-            </option>
-            {availableRoles.map((role) => (
-              <option key={role} value={role}>
-                {role.replace("_", " ")}
-              </option>
-            ))}
-          </select>
+          <div className="col-span-2">
+            <label className="mb-1 block text-sm text-gray-400">
+              {isEditMode ? "Role" : "Staff Role"}
+            </label>
+            <input
+              value={formData.role.replace("_", " ")}
+              className="w-full rounded bg-gray-800 p-2 text-white"
+              readOnly
+              disabled
+            />
+          </div>
 
           <div className="col-span-2 rounded border border-gray-700 bg-gray-800/60 p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -380,6 +378,7 @@ const AddStaffModal = ({ onClose, onStaffAdded, staffToEdit = null }) => {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

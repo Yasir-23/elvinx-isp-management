@@ -21,6 +21,13 @@ import AddStaffModal from "../components/AddStaffModal";
 import TransferCreditsModal from "../components/TransferCreditsModal";
 import AdjustBalanceModal from "../components/AdjustBalanceModal";
 
+function getDirectChildRole(role) {
+  if (role === "SUPER_ADMIN") return "FRANCHISE";
+  if (role === "FRANCHISE") return "DEALER";
+  if (role === "DEALER") return "SUB_DEALER";
+  return null;
+}
+
 export default function StaffManagement() {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -94,12 +101,8 @@ export default function StaffManagement() {
     }
   };
 
-  const getDirectChildRoles = (role) => {
-    if (role === "SUPER_ADMIN") return ["FRANCHISE", "DEALER", "SUB_DEALER"];
-    if (role === "FRANCHISE") return ["DEALER", "SUB_DEALER"];
-    if (role === "DEALER") return ["SUB_DEALER"];
-    return [];
-  };
+  const creatableRole = getDirectChildRole(userRole);
+  const canOpenAddStaff = Boolean(creatableRole);
 
   const canEditPackages = (staff) => {
     if (!staff || staff.role === "SUPER_ADMIN") return false;
@@ -107,7 +110,7 @@ export default function StaffManagement() {
 
     return (
       staff.parentId === userId &&
-      getDirectChildRoles(userRole).includes(staff.role)
+      staff.role === creatableRole
     );
   };
 
@@ -333,12 +336,14 @@ export default function StaffManagement() {
           <h1 className="text-lg font-semibold text-white">Staff Management</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAddStaff(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-700 hover:text-white transition"
-          >
-            <UserPlus size={16} /> Add Staff
-          </button>
+          {canOpenAddStaff && (
+            <button
+              onClick={() => setShowAddStaff(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-700 hover:text-white transition"
+            >
+              <UserPlus size={16} /> Add Staff
+            </button>
+          )}
           <button
             onClick={fetchStaff}
             disabled={loading}
